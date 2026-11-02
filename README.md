@@ -37,7 +37,9 @@ Pune `assets/faces/trump.jpg` și `assets/faces/putin.jpg` (frontale) și sunt p
 `index.html` (UI) · `js/rig.js` (schelet + skinning) · `js/anim.js` (clipuri) · `js/chars.js` (parametri personaje) · `js/stage.js` (ring, lumini, cameră) · `js/game.js` (reguli, UI, relay).
 Hook de diagnostic: `window.GameV4.debug.advance(sec)` rulează simularea determinist.
 
-## Cursa țărilor (`race.html`)
+## Cursa țărilor (`race.html`) — v2
+**v2:** 10 cai diferiți (4 seturi de cadre Gemini + variante de blană + nume și ritm propriu), spectacol (numărătoare „pe locuri / fiți gata”, depășiri, bannere TURBO la 🚀🦁, ultimele 10 s cu cadouri x1,5 și puls roșu, photo finish în slow-motion cu zoom pe câștigător, podium cu cal în două picioare și trofeu), progres pe termen lung (sezon de 10 curse cu puncte pe locuri, campioană + trofeu, nivele și titluri pentru spectatori, serii zilnice, recorduri; totul în localStorage, doar pe dispozitivul acesta, fără conturi verificate; boții nu se salvează).
+
 Joc 2D separat, construit după tiparul „country race” din LIVE-urile TikTok: 10 țări cu steag și cal, spectatorii scriu codul țării (RO, US, BR…), cadourile/like-urile/chat-ul împing calul țării lor spre linia de sosire, victorii pe țară (localStorage), MVP, țintă cu x2, bonus pentru ultimul loc, revanșă automată. Caii sunt **realiști** (8 cadre de galop cu cal și jockey, generate cu Gemini și decupate de pe fundal verde; blana variază în 5 culori, iar tricoul jockey-ului ia culoarea țării), pista și antetul sunt foto generate cu Gemini (`assets/race/`). Interfața (panouri, steaguri, linia de sosire) e desenată în cod; nu copiază artă din alte LIVE-uri. Imaginile AI au fost verificate vizual doar în capturi; termenii serviciului trebuie verificați pentru uz comercial.
 - Nimic nu mișcă un cal în afara evenimentelor; la 100 s câștigă cel din față.
 - „Boții” de test sunt marcați 🤖 și nu sunt prezentați ca utilizatori TikTok. `?live=1` ascunde comenzile pentru transmisie.
