@@ -69,6 +69,10 @@ function initStage() {
   
   fighters = CHARS.map((spec, i) => makeFighter(spec, i));
   fighters.forEach((f) => { stage.scene.add(f.ch.group); f.ch.group.traverse((o) => { if (o.isMesh) o.castShadow = true; }); play(f, 'guard', 0); });
+  const q = new URLSearchParams(location.search).get('hq');
+  if (q === '0') stage.setQuality(false);
+  forceQ = q === '1' || q === '0';
+  const bg = new Image(); bg.onload = () => stage.setBackdrop(bg); bg.onerror = () => {}; bg.src = 'assets/arena/bg.jpg';
   stage.resize();
   window.addEventListener('resize', () => stage.resize(), { passive: true });
   if ('ResizeObserver' in window) new ResizeObserver(() => stage.resize()).observe(canvas.parentElement);
@@ -91,6 +95,12 @@ function sound(freq, duration = 0.16) {
   } catch (e) { /* audio is optional */ }
 }
 function pushEvent(msg, side = null) { S.events.unshift({ txt: msg, side, at: Date.now() }); S.events.length = Math.min(S.events.length, 30); $('feedline').textContent = msg; renderActivity(); }
+function tickGift(txt, side) {
+  const t = $('ticker'); if (!t) return;
+  const row = document.createElement('div'); row.className = 'tk ' + (side === 1 ? 'b' : 'r'); row.textContent = txt;
+  t.prepend(row); while (t.children.length > 5) t.lastChild.remove();
+  setTimeout(() => row.remove(), 7000);
+}
 function refresh() {
   for (let i = 0; i < 2; i++) {
     $('hpbar' + i).style.width = S.hp[i] + '%'; $('hpnum' + i).textContent = Math.ceil(S.hp[i]);
@@ -184,6 +194,7 @@ function award(side, type, count, name, external, id) {
   if (S.pending.length > 20) S.pending.shift();
   const src = external ? (S.tiktokVerified ? '🎁' : '📡') : '🧪';
   pushEvent(`${src} ${name} · ${TYPES[type].emoji} ${TYPES[type].label} x${count} pentru ${S.names[side]}`, side);
+  tickGift(`${TYPES[type].emoji} ${name} · ${TYPES[type].label} x${count}`, side);
   refresh(); renderRanking();
 }
 
@@ -236,9 +247,11 @@ function update(dt) {
   stage.update(dt);
 }
 
-let rafId = 0;
+let rafId = 0, forceQ = false, qFrames = 0, qSum = 0;
 function frame() {
-  const dt = Math.min(0.05, clock.getDelta());
+  const raw = clock.getDelta(), dt = Math.min(0.05, raw);
+  // auto quality: if the first ~100 frames average slower than ~30 fps, drop bloom/shadows/pixel ratio
+  if (!forceQ && stage.hq && qFrames < 100 && raw < 0.5) { qFrames++; qSum += raw; if (qFrames === 100 && qSum / 100 > 0.034) { stage.setQuality(false); console.info('Auto quality: LOW (avg frame ' + (qSum * 10).toFixed(1) + ' ms)'); } }
   update(dt);
   stage.render();
   rafId = requestAnimationFrame(frame);
