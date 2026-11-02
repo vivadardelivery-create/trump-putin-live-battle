@@ -31,7 +31,7 @@
 </div><script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id), canvas=$('arena'), ctx=canvas.getContext('2d',{alpha:false});
-const ASSET='assets/', pictures={frames:new Image(),idle:new Image(),arena:new Image()}; pictures.frames.src=ASSET+'fight_frames.webp';pictures.arena.src=ASSET+'arena_atmosphere.webp';
+const ASSET='assets/', pictures={frames:new Image(),idle:new Image(),arena:new Image()}; pictures.frames.src=ASSET+'fight_frames.webp';pictures.idle.src=ASSET+'fight_idle.webp';pictures.arena.src=ASSET+'arena_atmosphere.webp';
 const TYPES={rose:{emoji:'🌹',label:'Trandafir',points:1,damage:3},heart:{emoji:'💖',label:'Inimă',points:5,damage:7},flame:{emoji:'🔥',label:'Flacără',points:10,damage:12},rocket:{emoji:'🚀',label:'Rachetă',points:35,damage:22},lion:{emoji:'🦁',label:'Leu',points:75,damage:37}};
 const S={running:false,round:1,hp:[100,100],wins:[0,0],teamPoints:[0,0],time:90,selected:-1,users:new Map(),events:[],anim:null,pending:[],particles:[],timeStamp:0,last:0,shake:0,flash:0,sound:false,sock:null,activeTab:'battle',frame:0,combo:0,lastAttackAt:0,clockms:0,displayNames:['TRUMP','PUTIN'],seenIds:new Set()};
 let w=400,h=320,dpr=1,audio=null,nonce=0,lastWarn=0;
@@ -62,8 +62,28 @@ function background(t){ctx.fillStyle='#091125';ctx.fillRect(0,0,w,h);if(pictures
  for(let r=0;r<7;r++)for(let c=0;c<31;c++){const xx=(c+.5)*w/31+(r%2)*2,yy=h*.17+r*h*.041;ctx.fillStyle=(c*7+r*11)%21===0?'#e5d0a9':'#283657';ctx.beginPath();ctx.arc(xx,yy,1.8+r*.18,0,Math.PI*2);ctx.fill()}
  const y=h*.66;const lg=ctx.createLinearGradient(0,y,0,h);lg.addColorStop(0,'#354867');lg.addColorStop(.37,'#1e2b46');lg.addColorStop(1,'#111827');ctx.fillStyle=lg;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.lineTo(w*.91,h*.96);ctx.lineTo(w*.09,h*.96);ctx.closePath();ctx.fill();line(0,y,w,y,3,'#93a4c7');line(w*.5,y,w*.5,h*.94,2,'#455c83');for(let r=0;r<3;r++)line(0,h*(.52+r*.085),w,h*(.52+r*.085),4,r===0?'#cf3852':r===1?'#e1e8f7':'#427fcb');rect(2,h*.46,13,h*.37,4,'#bb3755');rect(w-15,h*.46,13,h*.37,4,'#2872b8');
 }
-function drawFighters(t,frame){if(!pictures.frames.complete||!pictures.frames.naturalWidth)return;let fw=724,fh=241,slice=frame, sx=(slice%3)*fw,sy=Math.floor(slice/3)*fh;const drawW=w*1.25,drawH=drawW*fh/574;const x=(w-drawW)/2;let yy=h*.82-drawH+Math.sin(t*3)*1.5;ctx.drawImage(pictures.frames,sx+70,sy,574,241,x,yy,drawW,drawH);
- if(S.anim&&S.anim.side===1){const p=limit(S.anim.elapsed/S.anim.duration,0,1),pulse=Math.sin(p*Math.PI),scale=1+pulse*.035;ctx.save();ctx.translate(w*.74,yy+drawH*.32);ctx.scale(scale,scale);ctx.restore();const ex=w*(.68-pulse*.27),ey=yy+drawH*.43;glowCircle(ex,ey,25+pulse*24,'#66afff55');ctx.strokeStyle='#7ac5ff70';ctx.lineWidth=6+pulse*5;ctx.beginPath();ctx.moveTo(w*.67,ey+10);ctx.lineTo(ex,ey);ctx.stroke()}
+function drawFighters(t,frame){
+ if(!pictures.frames.complete||!pictures.frames.naturalWidth)return;
+ const fw=724,fh=241,footY=h*.86,baseX=(w*.5),bob1=Math.sin(t*2.4)*2,bob2=Math.sin(t*2.1+2.6)*2;
+ // Two independently breathing photorealistic fighters in idle stance.
+ // No strike motion or damage occurs while the game has no gift event.
+ function body(which,lean=0,shift=0){
+  const isTrump=which===0, srcX=isTrump?78:401, srcW=isTrump?300:233;
+  const targetW=w*(isTrump?.62:.59),targetH=targetW*241/srcW;
+  const tx=isTrump?-w*.055:w*.465,ty=footY-targetH+(isTrump?bob1:bob2);
+  ctx.save();ctx.translate(tx+targetW*.5+shift,footY);ctx.rotate(lean);ctx.translate(-targetW*.5,-(footY-ty));ctx.drawImage(pictures.idle,srcX,0,srcW,241,0,0,targetW,targetH);ctx.restore();
+ }
+ if(S.anim&&S.anim.side===0){
+  const slice=frame,sx=(slice%3)*fw,sy=Math.floor(slice/3)*fh,drawW=w*1.25,drawH=drawW*fh/574,x=(w-drawW)/2,yy=footY-drawH;
+  ctx.drawImage(pictures.frames,sx+70,sy,574,241,x,yy,drawW,drawH);
+  return;
+ }
+ if(S.anim&&S.anim.side===1){
+  const p=limit(S.anim.elapsed/S.anim.duration,0,1),attack=Math.sin(p*Math.PI);
+  body(0,-attack*.10,-attack*w*.012);body(1,-attack*.19,-attack*w*.09);
+  glowCircle(w*(.35+attack*.01),h*.47,18+attack*25,'#66afff48');return;
+ }
+ body(0);body(1);
 }
 function paint(now){const dt=Math.min(.05,(now-(S.last||now))/1000);S.last=now;if(S.running){S.time-=dt;S.clockms+=dt;if(S.time<=0){S.time=0;end()}if(!S.anim&&S.pending.length)executeAttack(S.pending.shift());if(S.anim){S.anim.elapsed+=dt;if(S.anim.elapsed>=S.anim.duration){S.anim=null;$('announce').textContent='TRIMITE UN CADOU ȘI AJUTĂ-ȚI ECHIPA!'}}refresh()}if(S.shake>0)S.shake=Math.max(0,S.shake-dt*27);if(S.flash>0)S.flash=Math.max(0,S.flash-dt*2.3);
  ctx.save();ctx.translate((Math.random()-.5)*S.shake,(Math.random()-.5)*S.shake);background(now/1000);let frame=0;if(S.anim?.side===0){const p=limit(S.anim.elapsed/S.anim.duration,0,1);frame=Math.min(8,Math.floor(p*9))}drawFighters(now/1000,frame);ctx.restore();for(const p of S.particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=150*dt;p.life-=dt;ctx.fillStyle=p.col;ctx.globalAlpha=limit(p.life,0,1);ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;S.particles=S.particles.filter(p=>p.life>0);if(S.flash){ctx.fillStyle='rgba(255,220,157,'+(S.flash*.16)+')';ctx.fillRect(0,0,w,h)}requestAnimationFrame(paint)}
