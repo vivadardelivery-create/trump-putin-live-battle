@@ -3,7 +3,7 @@
 import * as THREE from './vendor/three.min.js';
 import { createCharacter } from './rig.js';
 import { buildClips } from './anim.js';
-import { CHARS } from './chars.js';
+import { CHAR_SETS } from './chars.js';
 import { createStage, FIGHTER_X } from './stage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -20,7 +20,7 @@ const TYPES = {
 const S = {
   running: false, round: 1, hp: [100, 100], wins: [0, 0], teamPoints: [0, 0], time: 90, selected: -1,
   users: new Map(), events: [], pending: [], act: null, sound: false, sock: null, activeTab: 'battle',
-  names: ['TRUMP', 'PUTIN'], seenIds: new Set(), roundOver: false,
+  names: ['TRUMP', 'PUTIN'], setName: 'real', streak: [0, 0], power: [0, 0], goal: 150, dbl: -1, idleT: 0, roundPts: new Map(), autoT: 0, seenIds: new Set(), roundOver: false,
   // honesty flag: stays false unless a relay explicitly reports a live TikTok room connection
   tiktokVerified: false, relayOpen: false,
 };
@@ -64,11 +64,27 @@ function play(f, name, fade = 0.1) {
   f.cur = next; f.curName = name;
 }
 
+function loadSet(name) {
+  if (!CHAR_SETS[name]) name = 'real';
+  try { localStorage.setItem('arena.set', name); } catch (e) { /* storage optional */ }
+  fighters.forEach((f) => { f.mixer.stopAllAction(); stage.scene.remove(f.ch.group); });
+  S.setName = name;
+  fighters = CHAR_SETS[name].map((spec, i) => makeFighter(spec, i));
+  fighters.forEach((f) => { stage.scene.add(f.ch.group); f.ch.group.traverse((o) => { if (o.isMesh) o.castShadow = true; }); play(f, 'guard', 0); });
+  S.names = fighters.map((f) => f.spec.name);
+  const real = name === 'real';
+  $('titleTxt').innerHTML = S.names[0] + ' <b>VS</b> ' + S.names[1];
+  $('nameL').textContent = (real ? '🔴 ' : '🇺🇸 ') + S.names[0]; $('nameR').textContent = S.names[1] + (real ? ' 🔵' : ' 🇷🇺');
+  $('choose0').textContent = (real ? '🔴 ECHIPA ' : '🇺🇸 ECHIPA ') + S.names[0]; $('choose1').textContent = (real ? '🔵 ECHIPA ' : '🇷🇺 ECHIPA ') + S.names[1];
+  $('chat').placeholder = 'Scrie ' + S.names[0] + ' sau ' + S.names[1] + ' pentru a alege echipa';
+  $('setReal').classList.toggle('on', real); $('setCari').classList.toggle('on', !real);
+  const ih = document.querySelector('#intro h2'); if (ih) ih.innerHTML = '<span>' + S.names[0] + '</span><br>VS ' + S.names[1];
+  document.title = S.names[0] + ' vs ' + S.names[1] + ' — LIVE ARENA';
+}
 function initStage() {
   stage = createStage(canvas);
   
-  fighters = CHARS.map((spec, i) => makeFighter(spec, i));
-  fighters.forEach((f) => { stage.scene.add(f.ch.group); f.ch.group.traverse((o) => { if (o.isMesh) o.castShadow = true; }); play(f, 'guard', 0); });
+  loadSet(localStorage.getItem('arena.set') || 'real');
   const q = new URLSearchParams(location.search).get('hq');
   if (q === '0') stage.setQuality(false);
   forceQ = q === '1' || q === '0';
@@ -112,6 +128,8 @@ function refresh() {
   $('round').textContent = String(S.round).padStart(2, '0');
   $('wins').textContent = S.wins.join(' — ');
   const arr = [...S.users.values()].sort((a, b) => b.points - a.points);
+  $('pw0').textContent = Math.floor(S.power[0]); $('pw1').textContent = Math.floor(S.power[1]);
+  { const dl = S.dbl >= 0 && S.time > S.dbl ? ' · x2 ' + Math.ceil(S.time - S.dbl) + 's' : ''; $('arenaGoal').textContent = 'ȚINTĂ ' + Math.min(S.teamPoints[0] + S.teamPoints[1], S.goal) + '/' + S.goal + dl; }
   $('mvp').textContent = (arr.find((u) => u.points > 0)?.name || '—').slice(0, 13);
   $('choose0').classList.toggle('selected', S.selected === 0);
   $('choose1').classList.toggle('selected', S.selected === 1);
@@ -119,14 +137,17 @@ function refresh() {
 function renderRanking() {
   const el = $('ranking');
   const sorted = [...S.users.values()].sort((a, b) => b.points - a.points);
-  if (!sorted.length) { el.textContent = 'Niciun participant. Alege o echipă pentru a intra.'; return; }
-  el.replaceChildren(...sorted.slice(0, 15).map((u, i) => {
+  const at = Object.entries(allTime).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const head = document.createElement('div'); head.className = 'leaderrow'; head.textContent = '👑 TOP ALL-TIME (acest dispozitiv)';
+  const atRows = at.map(([n, v], i) => { const r = document.createElement('div'); r.className = 'leaderrow'; r.textContent = (i + 1) + '. ' + n + ' — ' + v + ' pct'; return r; });
+  if (!sorted.length) { el.replaceChildren(document.createTextNode('Niciun participant în runda asta. Alege o echipă pentru a intra.'), head, ...atRows); return; }
+  el.replaceChildren(...sorted.slice(0, 10).map((u, i) => {
     const r = document.createElement('div'); r.className = 'leaderrow';
     const mark = document.createElement('span'); mark.className = 'miniBadge'; mark.textContent = i + 1;
-    const name = document.createElement('span'); name.textContent = (u.team === 0 ? '🇺🇸 ' : '🇷🇺 ') + u.name;
+    const name = document.createElement('span'); name.textContent = (u.team === 0 ? '🔴 ' : '🔵 ') + u.name;
     const point = document.createElement('em'); point.textContent = u.points + ' pct';
     r.append(mark, name, point); return r;
-  }));
+  }).concat(at.length ? [head, ...atRows] : []));
 }
 function renderActivity() {
   $('activity').replaceChildren(...S.events.slice(0, 15).map((v) => { const d = document.createElement('div'); d.className = 'leaderrow'; d.textContent = v.txt; return d; }));
@@ -145,6 +166,23 @@ function floatText(text, worldPos, color) {
   $('arenabox').appendChild(el); setTimeout(() => el.remove(), 900);
 }
 
+const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/^!/, '');
+function sideOf(t) {
+  t = norm(t);
+  if (!t) return -1;
+  if (t === norm(S.names[0]) || ['trump', 'red', 'rosu', '1', 'left'].includes(t) && S.setName === 'cari' || ['red', 'rosu', '1', 'left'].includes(t)) return 0;
+  if (t === norm(S.names[1]) || ['putin', 'blue', 'albastru', '2', 'right'].includes(t) && S.setName === 'cari' || ['blue', 'albastru', '2', 'right'].includes(t)) return 1;
+  return -1;
+}
+// persistent all-time leaderboard (this device only)
+let allTime = {};
+try { allTime = JSON.parse(localStorage.getItem('arena.alltime') || '{}'); } catch (e) { allTime = {}; }
+function saveAllTime(name, pts) {
+  allTime[name] = (allTime[name] || 0) + pts;
+  const keys = Object.keys(allTime); if (keys.length > 60) { keys.sort((a, b) => allTime[a] - allTime[b]).slice(0, keys.length - 50).forEach((k) => delete allTime[k]); }
+  try { localStorage.setItem('arena.alltime', JSON.stringify(allTime)); } catch (e) { /* optional */ }
+}
+
 // ---------- game rules ----------
 function join(name, side) {
   if (side !== 0 && side !== 1) return;
@@ -160,6 +198,7 @@ function resetFighters() {
 }
 function start() {
   S.running = true; S.roundOver = false; S.hp = [100, 100]; S.time = 90; S.pending = []; S.act = null;
+  S.power = [0, 0]; S.goal = 150; S.dbl = -1; S.idleT = 0; S.roundPts = new Map(); S.autoT = 0;
   $('intro').hidden = true; $('result').hidden = true;
   resetFighters();
   $('announce').textContent = '🥊 FIGHT!';
@@ -177,6 +216,10 @@ function end() {
   $('winner').style.color = side < 0 ? '#ffda9a' : side === 0 ? '#ff748d' : '#8bc5ff';
   $('resultText').textContent = side < 0 ? 'Nicio echipă nu a reușit să decidă lupta.' : `Echipa ${S.names[side]} a câștigat runda ${S.round}${fighters[1 - side].state === 'ko' ? ' prin KO' : ''}.`;
   pushEvent('🏆 ' + $('winner').textContent);
+  if (side >= 0) { S.streak[side]++; S.streak[1 - side] = 0; } else S.streak = [0, 0];
+  const mvp = [...S.roundPts.entries()].sort((a, b) => b[1] - a[1])[0];
+  $('resultExtra').textContent = (side >= 0 && S.streak[side] > 1 ? '🔥 Serie de ' + S.streak[side] + ' victorii · ' : '') + (mvp ? '👑 MVP runda: ' + mvp[0] + ' (' + mvp[1] + ' pct)' : 'Fără cadouri în runda asta. Trimite unul!');
+  S.autoT = 12; // next round starts by itself: the LIVE can run unattended
   setTimeout(() => { if (S.roundOver) $('result').hidden = false; }, fighters.some((f) => f.state === 'ko') ? 600 : 400);
   refresh(); sound(260, 0.4);
 }
@@ -189,8 +232,17 @@ function award(side, type, count, name, external, id) {
   const key = name.toLocaleLowerCase('ro');
   if (!S.users.has(key)) join(name, side);
   const user = S.users.get(key); user.team = side;
-  const pts = TYPES[type].points * count; user.points += pts; S.teamPoints[side] += pts;
-  S.pending.push({ side, type, count, name, damage: Math.min(TYPES[type].damage * count, 90) });
+  const dbl = S.time > S.dbl && S.dbl >= 0 ? 2 : 1; // gift-goal bonus window
+  const pts = TYPES[type].points * count * dbl; user.points += pts; S.teamPoints[side] += pts; saveAllTime(user.name, pts);
+  S.roundPts.set(user.name, (S.roundPts.get(user.name) || 0) + pts); S.idleT = 0;
+  let dmg = Math.min(TYPES[type].damage * count, 90);
+  if (S.hp[side] <= 30 && S.hp[1 - side] > S.hp[side]) { dmg = Math.round(dmg * 1.25); $('announce').textContent = '💪 COMEBACK · ' + S.names[side] + ' +25% daune'; }
+  S.pending.push({ side, type, count, name, damage: dmg });
+  // power meter: every gift charges the team's SUPER punch (still an event-driven attack, never automatic)
+  S.power[side] += Math.min(pts, 60);
+  if (S.power[side] >= 100) { S.power[side] -= 100; S.pending.push({ side, type: 'lion', count: 1, name: '⚡ SUPER ' + S.names[side], damage: 25 }); pushEvent('⚡ SUPER LOVITURĂ pentru ' + S.names[side], side); }
+  const total = S.teamPoints[0] + S.teamPoints[1];
+  if (total >= S.goal) { S.goal += 200; S.dbl = S.time - 15; pushEvent('🎯 ȚINTA ATINSĂ! Puncte x2 timp de 15 s'); $('announce').textContent = '🎯 PUNCTE x2 · 15 s'; }
   if (S.pending.length > 20) S.pending.shift();
   const src = external ? (S.tiktokVerified ? '🎁' : '📡') : '🧪';
   pushEvent(`${src} ${name} · ${TYPES[type].emoji} ${TYPES[type].label} x${count} pentru ${S.names[side]}`, side);
@@ -242,7 +294,15 @@ function update(dt) {
     } else if (S.pending.length && fighters.every((f) => f.state === 'guard')) {
       startAttack(S.pending.shift());
     }
+    S.idleT += dt;
+    if (!S.act && !S.pending.length && S.idleT > 18) {
+      S.idleT = 0; const tips = ['Scrie ' + S.names[0] + ' sau ' + S.names[1] + ' ca să alegi echipa!', 'Un cadou = o lovitură. Trimite 🌹 pentru jab, 🚀 pentru croșeu!', '⚡ Încarcă bara SUPER cu cadouri!', '🎯 Atingeți ținta ca să dați puncte x2!'];
+      $('announce').textContent = tips[Math.floor(Math.random() * tips.length)]; // text only: never triggers an attack
+    }
     refresh();
+  } else if (S.roundOver && S.autoT > 0) {
+    S.autoT -= dt; $('again').textContent = '↻ REVANȘĂ (' + Math.max(0, Math.ceil(S.autoT)) + ')';
+    if (S.autoT <= 0) { S.round++; start(); }
   }
   stage.update(dt);
 }
@@ -261,9 +321,9 @@ function frame() {
 function handleChat() {
   const inp = $('chat'), msg = inp.value.trim().slice(0, 100); inp.value = ''; if (!msg) return;
   const lower = msg.toLocaleLowerCase('ro');
-  if (/^(trump|!trump|roșu|rosu|1)$/i.test(lower)) { join('Tu', 0); showTab('battle'); }
-  else if (/^(putin|!putin|albastru|2)$/i.test(lower)) { join('Tu', 1); showTab('battle'); }
-  else { pushEvent('💬 Tu: ' + msg); notify('Scrie TRUMP sau PUTIN pentru echipă'); }
+  const sd = sideOf(lower);
+  if (sd >= 0) { join('Tu', sd); showTab('battle'); }
+  else { pushEvent('💬 Tu: ' + msg); notify('Scrie ' + S.names[0] + ' sau ' + S.names[1] + ' pentru echipă'); }
 }
 function setStatus() {
   const st = $('status');
@@ -291,7 +351,7 @@ function connect() {
       if (S.sock !== sock) return;
       try {
         const d = JSON.parse(ev.data);
-        const side = d.team === 'trump' ? 0 : d.team === 'putin' ? 1 : -1;
+        const side = sideOf(d.team);
         if (d.type === 'status') {
           // Only the relay can know whether it is attached to a real LIVE room. We just display what it claims.
           S.tiktokVerified = d.tiktok === 'connected' && typeof d.roomId === 'string' && d.roomId.length > 0; setStatus();
@@ -309,6 +369,8 @@ function connect() {
 // ---------- boot ----------
 function bindUI() {
   $('start').addEventListener('click', start);
+  $('setReal').addEventListener('click', () => loadSet('real'));
+  $('setCari').addEventListener('click', () => loadSet('cari'));
   $('again').addEventListener('click', () => { S.round++; start(); });
   $('choose0').addEventListener('click', () => join('Tu', 0));
   $('choose1').addEventListener('click', () => join('Tu', 1));

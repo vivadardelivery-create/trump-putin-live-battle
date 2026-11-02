@@ -10,6 +10,13 @@ Joc satiric pentru browserul telefonului (Android/Chrome), servit static (GitHub
 - **Nicio lovitură nu pornește singură.** Atacul se pornește doar scoțând un eveniment din coada de cadouri; impactul/KO-ul victimei se declanșează la cadrul de contact al clipului atacatorului. Test: 20 s fără cadouri → 0 lovituri.
 - Păstrate: interfața TikTok LIVE, echipe, puncte, clasament, activitate, cadouri simulate (🌹💖 = jab, 🔥🚀🦁 = croșeu).
 
+## Luptători și retenție (V4.1)
+- **Două seturi** (selector în ecranul de start): *Luptători realiști* (implicit) = două persoane **fictive originale**, cu fețe fotorealiste generate cu Gemini (`assets/faces/fighter_*.jpg`), proiectate pe capul 3D rigat; și *Caricaturi Trump vs Putin* (capete stilizate).
+- **Nu generez fotografii fotorealiste cu persoane reale** (politicieni). Pentru caricaturi folosești capul stilizat; fotografii proprii cu licență verificată pot fi puse în `assets/faces/trump.jpg` / `putin.jpg`.
+- **Rulează singur:** după fiecare rundă, revanșa pornește automat în 12 s (LIVE fără apăsări manuale).
+- **Mecanici de retenție:** bară ⚡ SUPER (cadourile o încarcă; la 100% se pune în coadă o lovitură, tot dintr-un eveniment), țintă de cadouri cu **puncte x2 timp de 15 s**, bonus COMEBACK (+25% daune sub 30% HP), serie de victorii, MVP-ul rundei, top all-time pe dispozitiv (localStorage), mesaje de îndemn (doar text) după 18 s fără activitate. Eficiența lor asupra retenției **nu a fost măsurată**; sursele găsite sunt vânzători de unelte, nu studii.
+- **Independent de PC:** jocul e pagină statică (GitHub Pages), rulează pe telefon. **Cadourile TikTok reale cer însă un server relay** în cloud (nu PC), care nu e inclus și nu a fost testat.
+
 ## Grafică arenă
 Ring cu LED-uri și corzi luminoase, ecran LED, truss cu fascicule, public cu bokeh, confetti, bloom la impact, ticker de cadouri. Calitatea scade automat (fără bloom/umbre) dacă primele ~100 de cadre rulează sub ~30 fps; `?hq=1` / `?hq=0` forțează. Fundalul pictat `assets/arena/bg.jpg` (generat cu Gemini prin conectorul Composio, 9:16, redimensionat la 1072×1920) este desenat pe tot ecranul în spatele ringului 3D; fără el se folosește arena procedurală. Nu atinge nivelul artei pictate din LIVE-urile de tip Arena; aceea e artă 2D făcută separat.
 

@@ -1,6 +1,6 @@
 // Character definitions. Both are stylised satirical caricatures built from the same skeleton layout,
 // but each has its own proportions, stance (Trump orthodox, Putin southpaw) and independent animation timing.
-export const CHARS = [
+export const CARICATURES = [
   {
     id: 'trump', name: 'TRUMP', face: { src: 'assets/faces/trump.jpg', crop: { cx: 0.5, cy: 0.5, w: 1, h: 1 } }, lead: 'L', scale: 1.03, bulk: 1.12, belly: 0.02,
     skin: 0xe9a57a, suit: 0x24418c, trousers: 0x1d3475, glove: 0xd4172e, tie: 0xc8102e, tieLen: 0.36, hair: 0xe3b95a, brow: 0xc99a46,
@@ -26,3 +26,20 @@ export const CHARS = [
     },
   },
 ];
+
+// Original fictional fighters with Gemini-generated photoreal faces (assets/faces/fighter_*.jpg).
+// They reuse the tuned animation parameters of the caricature set (same proportions).
+const base = CARICATURES;
+export const REAL_FIGHTERS = [
+  {
+    ...base[0], id: 'red', name: 'DRAGOȘ', team: 'ROȘU', face: { src: 'assets/faces/fighter_red.jpg', crop: { cx: 0.5, cy: 0.37, w: 0.62, h: 0.62 } },
+    skin: 0xcf9f82, suit: 0xc4182f, trousers: 0x9c1220, glove: 0xd4172e, hair: 0x2b2a28, brow: 0x2b2a28, hairStyle: 'short', bareArms: true, bareLegs: true, boxer: true,
+    head: { rx: 0.1, ry: 0.12, rz: 0.092 }, bulk: 1.06, belly: 0,
+  },
+  {
+    ...base[1], id: 'blue', name: 'BOGDAN', team: 'ALBASTRU', face: { src: 'assets/faces/fighter_blue.jpg', crop: { cx: 0.5, cy: 0.4, w: 0.8, h: 0.8 } },
+    skin: 0xd2a58b, suit: 0x1f5fd6, trousers: 0x1646a3, glove: 0x2468e6, hair: 0x9a9a9a, brow: 0x777777, hairStyle: 'none', bareArms: true, bareLegs: true, boxer: true,
+    head: { rx: 0.105, ry: 0.12, rz: 0.098 }, bulk: 1.12, belly: 0,
+  },
+];
+export const CHAR_SETS = { real: REAL_FIGHTERS, cari: CARICATURES };

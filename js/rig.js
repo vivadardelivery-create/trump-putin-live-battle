@@ -63,6 +63,7 @@ const R = (y, rx, rz, w, c, cx = 0, cz = 0) => ({ y, rx, rz, w, c, cx, cz });
 export function createCharacter(spec) {
   const sk = col(spec.skin), jk = col(spec.suit), tr = col(spec.trousers), gl = col(spec.glove);
   const bulk = spec.bulk ?? 1, belly = spec.belly ?? 0;
+  const ar = spec.bareArms ? sk : jk; // sleeve colour (bare arms for boxers)
 
   const tubes = [];
   // Torso (hips -> chest) including jacket
@@ -91,15 +92,15 @@ export function createCharacter(spec) {
     const L = s < 0 ? 'L' : 'R', cz = s * 0.2;
     const u = 'uArm' + L, f = 'fArm' + L, h = 'hand' + L, t = 'thigh' + L, sh = 'shin' + L, ft = 'foot' + L;
     tubes.push([
-      R(1.6, 0.001, 0.001, [[u, 1]], jk, 0, cz),
-      R(1.56, 0.05, 0.05, [[u, 0.8], ['chest', 0.2]], jk, 0, cz),
-      R(1.52, 0.08 * bulk, 0.08 * bulk, [[u, 0.75], ['chest', 0.25]], jk, 0, cz),
-      R(1.4, 0.072 * bulk, 0.072 * bulk, [[u, 1]], jk, 0, cz),
-      R(1.28, 0.062 * bulk, 0.062 * bulk, [[u, 1]], jk, 0, cz),
-      R(1.22, 0.058 * bulk, 0.058 * bulk, [[u, 0.5], [f, 0.5]], jk, 0, cz),
-      R(1.12, 0.056 * bulk, 0.056 * bulk, [[f, 1]], jk, 0, cz),
-      R(1.02, 0.048, 0.048, [[f, 1]], jk, 0, cz),
-      R(0.95, 0.045, 0.045, [[f, 0.5], [h, 0.5]], jk, 0, cz),
+      R(1.6, 0.001, 0.001, [[u, 1]], ar, 0, cz),
+      R(1.56, 0.05, 0.05, [[u, 0.8], ['chest', 0.2]], ar, 0, cz),
+      R(1.52, 0.08 * bulk, 0.08 * bulk, [[u, 0.75], ['chest', 0.25]], ar, 0, cz),
+      R(1.4, 0.072 * bulk, 0.072 * bulk, [[u, 1]], ar, 0, cz),
+      R(1.28, 0.062 * bulk, 0.062 * bulk, [[u, 1]], ar, 0, cz),
+      R(1.22, 0.058 * bulk, 0.058 * bulk, [[u, 0.5], [f, 0.5]], ar, 0, cz),
+      R(1.12, 0.056 * bulk, 0.056 * bulk, [[f, 1]], ar, 0, cz),
+      R(1.02, 0.048, 0.048, [[f, 1]], ar, 0, cz),
+      R(0.95, 0.045, 0.045, [[f, 0.5], [h, 0.5]], ar, 0, cz),
       R(0.9, 0.04, 0.04, [[h, 1]], gl, 0, cz),
       R(0.88, 0.001, 0.001, [[h, 1]], gl, 0, cz),
     ]);
@@ -117,6 +118,7 @@ export function createCharacter(spec) {
       R(0.03, 0.04, 0.04, [[ft, 1]], tr, 0, lz),
       R(0.02, 0.001, 0.001, [[ft, 1]], tr, 0, lz),
     ]);
+    if (spec.bareLegs) tubes[tubes.length - 1].forEach((r) => { if (r.y < 0.7) r.c = sk; });
   }
 
   const geometry = buildBody(tubes);
@@ -176,15 +178,15 @@ export function createCharacter(spec) {
     part(sph, hairM, head, -0.012, 0.185, 0, hd.rx * 1.06, 0.07, hd.rz * 1.06);
     part(sph, hairM, head, 0.075, 0.222, 0, 0.1, 0.034, 0.1, 0, 0, -0.18); // front swept volume
     part(sph, hairM, head, -0.07, 0.12, 0, 0.05, 0.075, hd.rz * 1.04);
-  } else {
+  } else if (spec.hairStyle === 'short') {
     part(sph, hairM, head, -0.035, 0.19, 0, hd.rx * 0.92, 0.05, hd.rz * 0.97); // receding, short
     part(sph, hairM, head, -0.07, 0.125, 0, 0.04, 0.07, hd.rz * 1.0);
   }
 
   // shirt V and tie (rigid on chest)
   const chest = B('chest');
-  part(box, mat(0xf4f4f4, 0.8), chest, 0.158 * bulk + 0.005, 0.1, 0, 0.012, 0.3, 0.1);
-  part(box, mat(spec.tie, 0.5), chest, 0.158 * bulk + 0.018 + belly * 0.5, spec.tieLen * -0.5 + 0.2, 0, 0.012, spec.tieLen, 0.05);
+  if (!spec.boxer) part(box, mat(0xf4f4f4, 0.8), chest, 0.158 * bulk + 0.005, 0.1, 0, 0.012, 0.3, 0.1);
+  if (!spec.boxer) part(box, mat(spec.tie, 0.5), chest, 0.158 * bulk + 0.018 + belly * 0.5, spec.tieLen * -0.5 + 0.2, 0, 0.012, spec.tieLen, 0.05);
 
   const root = new THREE.Group();
   root.name = spec.id;
