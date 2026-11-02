@@ -11,7 +11,7 @@ Joc satiric pentru browserul telefonului (Android/Chrome), servit static (GitHub
 - Păstrate: interfața TikTok LIVE, echipe, puncte, clasament, activitate, cadouri simulate (🌹💖 = jab, 🔥🚀🦁 = croșeu).
 
 ## Grafică arenă
-Ring cu LED-uri și corzi luminoase, ecran LED, truss cu fascicule, public cu bokeh, confetti, bloom la impact, ticker de cadouri. Calitatea scade automat (fără bloom/umbre) dacă primele ~100 de cadre rulează sub ~30 fps; `?hq=1` / `?hq=0` forțează. Un fundal pictat propriu: `assets/arena/bg.jpg`. Nu atinge nivelul artei pictate din LIVE-urile de tip Arena; aceea e artă 2D făcută separat.
+Ring cu LED-uri și corzi luminoase, ecran LED, truss cu fascicule, public cu bokeh, confetti, bloom la impact, ticker de cadouri. Calitatea scade automat (fără bloom/umbre) dacă primele ~100 de cadre rulează sub ~30 fps; `?hq=1` / `?hq=0` forțează. Fundalul pictat `assets/arena/bg.jpg` (generat cu Gemini prin conectorul Composio, 9:16, redimensionat la 1072×1920) este desenat pe tot ecranul în spatele ringului 3D; fără el se folosește arena procedurală. Nu atinge nivelul artei pictate din LIVE-urile de tip Arena; aceea e artă 2D făcută separat.
 
 ## Fețe foto
 Pune `assets/faces/trump.jpg` și `assets/faces/putin.jpg` (frontale) și sunt proiectate pe capul 3D. Detalii în `assets/faces/README.md`. Proiecția e verificată doar cu o imagine de test sintetică; calitatea cu fotografii reale nu a fost evaluată.

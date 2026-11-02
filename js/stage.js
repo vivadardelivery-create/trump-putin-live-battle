@@ -151,14 +151,18 @@ export function createStage(canvas) {
   const dust = new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.07, map: dotTex, vertexColors: true, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
   scene.add(dust);
 
-  // owner-supplied painted backdrop (optional)
-  let backdrop = null;
+  // painted backdrop (assets/arena/bg.jpg): screen-space "cover" background; the 3D ring + fighters render on top
+  let bgTex = null, bgAsp = 1, bgFocus = 0.52;
+  function fitBackdrop() {
+    if (!bgTex) return;
+    const A = W / H, frac = Math.min(1, bgAsp / A);
+    bgTex.repeat.set(1, frac); bgTex.offset.set(0, Math.max(0, Math.min(1 - frac, (1 - bgFocus) - frac / 2)));
+  }
   function setBackdrop(img) {
-    const t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
-    if (backdrop) scene.remove(backdrop);
-    const asp = img.width / img.height, h = 20, w = h * asp;
-    backdrop = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(w, 24), h), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, fog: false }));
-    backdrop.position.set(0, 4, -9.5); scene.add(backdrop); wallGroup.visible = false;
+    bgTex = new THREE.Texture(img); bgTex.colorSpace = THREE.SRGBColorSpace; bgTex.needsUpdate = true;
+    bgAsp = img.width / img.height; scene.background = bgTex; scene.fog = null;
+    ground.visible = false; wallGroup.visible = false; beams.forEach((b) => { b.cone.visible = false; });
+    fitBackdrop();
   }
 
   // hit sparks (pooled)
@@ -202,7 +206,7 @@ export function createStage(canvas) {
     W = Math.max(10, Math.round(r.width)); H = Math.max(10, Math.round(r.height));
     renderer.setSize(W, H, false);
     if (hq) { if (!composer) buildComposer(W, H); else { composer.setPixelRatio(pixelRatio); composer.setSize(W, H); bloom.resolution.set(Math.round(W / 2), Math.round(H / 2)); } }
-    aspect = W / H; camera.aspect = aspect;
+    aspect = W / H; camera.aspect = aspect; fitBackdrop();
     const needW = 3.7, needH = 2.35;
     const vf = THREE.MathUtils.degToRad(camera.fov);
     const dist = Math.max(needH / 2 / Math.tan(vf / 2), needW / 2 / (Math.tan(vf / 2) * aspect));
