@@ -1,8 +1,19 @@
-# Trump vs Putin LIVE BATTLE
+# TRUMP VS PUTIN • LIVE ARENA V3
 
-Joc demonstrativ mobil, arcade 2.5D cu desen Canvas, compatibil cu navigarea pe telefon. GitHub Pages serveste fisierul index.html. Rundele dureaza 90 de secunde; controalele imita cadouri TikTok.
+Joc arcade fictiv pentru browserul telefonului. Nu depinde de un calculator pornit: pagina este servită de GitHub Pages.
 
-## Limitari
-Modul actual este **DEMO**. Nu primeste cadouri reale TikTok fara un server relay securizat, autorizat si configurat. Panoul de setari accepta doar un WebSocket de tip WSS care transmite JSON cu formatul {"type":"gift","team":"trump","gift":"rose","count":1,"username":"viewer"}. Sunt acceptate team=trump/putin si gift=rose/special. Cheile externe si tokenurile nu trebuie plasate niciodata in codul public. Nu exista sincronizare multiplayer si nici evidenta veniturilor.
+## Funcțional (demo)
+- Grafică fotorealistă generată în nouă cadre pentru secvența de lovitură a echipei Trump, cu scenă 2.5D și efecte vizuale.
+- Echipe roșu/albastru, puncte, clasament și feed de evenimente.
+- Comenzi prin text `TRUMP` / `PUTIN` și selecție cu butoane, exclusiv în sesiunea locală.
+- 5 categorii de cadouri simulate, lovituri pornite doar la evenimente. Fără cadouri = fără atacuri.
+- Timer de 90 secunde, scor persistent pe durata sesiunii, revanșe.
+- Adaptor opțional WebSocket `wss://` pentru un *relay extern* care transmite evenimente de tip gift/join/chat. Acesta **nu este conectat cu TikTok LIVE în mod automat**.
 
-Jocul este o caricatura fictionala, neafiliata cu TikTok sau cu persoanele reprezentate. Posibilitatea de a transmite ecranul prin LIVE Mobile gaming depinde de cont si de telefon.
+## Limitări clare
+- Personajele nu sunt modele 3D rigate: animația echipei Trump este pe cadre, iar reacția echipei Putin este efect procedural / lovitură sugerată, nu o animație 3D completă. Nu pretindem altceva.
+- Utilizatorii, comentariile și cadourile din butoanele demo sunt locale și nu reprezintă persoane care chiar au intrat în LIVE. Clasamentul este local.
+- Pentru cadourile reale trebuie un backend online separat, autentificat, care validează evenimentele, deduplică ID-urile, aplică limitări de frecvență și le trimite prin WSS. Nu introduce secrete TikTok în JavaScript-ul public.
+- Transmiterea ecranului telefonului prin aplicația TikTok depinde de disponibilitatea opțiunii în cont.
+
+**Efectul cadourilor:** Trandafir 3 HP/1 pct, Inimă 7 HP/5 pct, Flacără 12 HP/10 pct, Rachetă 22 HP/35 pct, Leu 37 HP/75 pct. Aceste numere sunt valori interne DEMO, nu prețuri TikTok.
