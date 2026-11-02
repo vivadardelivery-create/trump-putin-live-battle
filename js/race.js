@@ -27,7 +27,7 @@ const ROUND_TIME = 100, COUNTDOWN = 3, AUTO_NEXT = 10;
 
 const S = {
   phase: 'intro', t: 0, count: 0, auto: 0, goalB: 1.2, boostSum: 0, dbl: -1, idle: 0, round: 1,
-  C: COUNTRIES.map((c) => ({ ...c, pos: 0, dp: 0, sup: 0, pts: 0, phase: Math.random() * 6, sprint: 0 })),
+  C: COUNTRIES.map((c) => ({ ...c, pos: 0, dp: 0, sup: 0, pts: 0, phase: 0, cyc: Math.random(), sprint: 0 })),
   users: new Map(), roundPts: new Map(), feed: [], seen: new Set(), spark: [], confetti: [],
   wins: {}, winner: -1, sock: null, relayOpen: false, verified: false, bots: false, botT: 0, flash: 0,
 };
@@ -40,8 +40,8 @@ function layout() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   W = Math.max(200, r.width); H = Math.max(300, r.height);
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const top = Math.round(H * 0.17), bot = Math.round(H * 0.16);
-  L = { top, laneTop: top, laneH: (H - top - bot) / S.C.length, bot: H - bot, startX: 46, finX: W - 14 };
+  const top = Math.round(H * 0.2), bot = Math.round(H * 0.17);
+  L = { top, laneTop: top, laneH: (H - top - bot) / S.C.length, bot: H - bot, startX: 52, finX: W - 10 };
 }
 window.addEventListener('resize', layout, { passive: true });
 if ('ResizeObserver' in window) new ResizeObserver(layout).observe(canvas);
@@ -136,7 +136,7 @@ function update(dt) {
     if (S.idle > 15) { S.idle = 0; feed('💬 Scrie codul țării tale și trimite cadouri!'); } // text only
   } else if (S.phase === 'result') { S.auto -= dt; $('again').textContent = '↻ CURSA URMĂTOARE (' + Math.max(0, Math.ceil(S.auto)) + ')'; if (S.auto <= 0) { S.round++; begin(); } }
   if (S.bots) { S.botT -= dt; if (S.botT <= 0) { S.botT = 0.12 + Math.random() * 0.25; bot(); } }
-  for (const c of S.C) { c.dp += (c.pos - c.dp) * Math.min(1, dt * 5); c.sprint = Math.max(0, c.sprint - dt * 1.2); c.phase += dt * (2 + c.sprint * 14 + (c.pos - c.dp) * 80); }
+  for (const c of S.C) { c.dp += (c.pos - c.dp) * Math.min(1, dt * 5); c.sprint = Math.max(0, c.sprint - dt * 1.2); const run = c.sprint > 0.02 || Math.abs(c.pos - c.dp) > 0.004; if (run) c.cyc = (c.cyc || 0) + dt * (2.6 + c.sprint * 2.2 + Math.min(2, (c.pos - c.dp) * 30)); }
   S.spark = S.spark.filter((p) => (p.life -= dt) > 0); S.spark.forEach((p) => { p.x += p.vx * dt; p.y += p.vy * dt; });
   S.confetti.forEach((p) => { p.x += p.vx * dt; p.y += p.vy * dt; p.rot += dt * 4; }); S.confetti = S.confetti.filter((p) => p.y < H + 20);
   S.flash = Math.max(0, S.flash - dt * 2);
@@ -154,75 +154,111 @@ function bot() {
   else ev({ type: 'gift', username: name, gift: r < 0.9 ? 'rose' : r < 0.96 ? 'heart' : r < 0.985 ? 'flame' : 'rocket', count: 1 });
 }
 
-// ---------- drawing ----------
-function horse(x, y, s, col, phase, sprint, flip) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-  const sw = Math.sin(phase), sw2 = Math.sin(phase + Math.PI);
-  ctx.shadowColor = col; ctx.shadowBlur = 6 + sprint * 14;
-  ctx.strokeStyle = col; ctx.lineWidth = 3.2; ctx.lineCap = 'round';
-  const leg = (x0, sv) => { ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0 + sv * 7, 10); ctx.lineTo(x0 + sv * 3, 17); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.fillRect(x0 + sv * 3 - 1.5, 16, 3.5, 2.5); };
-  leg(-9, sw); leg(-6, sw2); leg(8, sw2); leg(11, sw);
-  ctx.fillStyle = col;
-  ctx.beginPath(); ctx.ellipse(0, -1, 14, 6.5, 0, 0, 7); ctx.fill();            // body
-  ctx.beginPath(); ctx.moveTo(9, -4); ctx.lineTo(17, -13); ctx.lineTo(21, -10); ctx.lineTo(13, 1); ctx.fill(); // neck
-  ctx.beginPath(); ctx.ellipse(21, -11, 6, 3.4, 0.5, 0, 7); ctx.fill();          // head
-  ctx.fillStyle = '#ffffffee'; ctx.beginPath(); ctx.moveTo(12, -9); ctx.lineTo(8, -14 + sw * 1.5); ctx.lineTo(16, -12); ctx.fill(); // mane
-  ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-13, -3); ctx.quadraticCurveTo(-21, -4 + sw * 3, -22, 2 + sw2 * 2); ctx.stroke(); // tail
-  ctx.shadowBlur = 0; ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(22.5, -12, 0.9, 0, 7); ctx.fill();
-  ctx.restore();
+// ---------- assets (Gemini-generated, see assets/race/README.md) ----------
+const IMG = { horse: new Image(), stadium: new Image(), dirt: new Image() };
+IMG.horse.src = 'assets/race/horse_bay.webp'; IMG.stadium.src = 'assets/race/stadium.jpg'; IMG.dirt.src = 'assets/race/dirt.jpg';
+const COATS = [{ l: 1, s: 1 }, { l: 0.55, s: 0.8 }, { l: 1.22, s: 1.3, r: 1.14, b: 0.78 }, { l: 1.2, s: 0.12 }, { l: 0.34, s: 0.5 }];
+let atlases = null, dirtPat = null; const FR = 8;
+function hexRGB(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function buildAtlases() {
+  const im = IMG.horse; if (!im.complete || !im.naturalWidth) return;
+  atlases = S.C.map((c, ci) => {
+    const cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0);
+    const id = g.getImageData(0, 0, cv.width, cv.height), d = id.data, fw = cv.width / FR, fh = cv.height;
+    const coat = COATS[ci % COATS.length], [cr, cg, cb] = hexRGB(c.col);
+    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+      const o = (y * cv.width + x) * 4; if (d[o + 3] < 8) continue;
+      const r = d[o], g2 = d[o + 1], b = d[o + 2], mx = Math.max(r, g2, b), mn = Math.min(r, g2, b), lum = r * 0.3 + g2 * 0.59 + b * 0.11;
+      const fx = (x % fw) / fw, fy = y / fh;
+      if (mn > 135 && mx - mn < 48 && fy < 0.52 && fx < 0.8) { // white silks / helmet -> country colour (keeps the cloth shading)
+        const k = clamp(lum / 225, 0.25, 1.1); d[o] = clamp(cr * k + 18, 0, 255); d[o + 1] = clamp(cg * k + 18, 0, 255); d[o + 2] = clamp(cb * k + 18, 0, 255);
+      } else if (!(mn > 135 && mx - mn < 48)) { // coat colour variants
+        let nr = lum + (r - lum) * coat.s, ng = lum + (g2 - lum) * coat.s, nb = lum + (b - lum) * coat.s;
+        nr *= coat.l * (coat.r || 1); ng *= coat.l; nb *= coat.l * (coat.b || 1);
+        d[o] = clamp(nr, 0, 255); d[o + 1] = clamp(ng, 0, 255); d[o + 2] = clamp(nb, 0, 255);
+      }
+    }
+    g.putImageData(id, 0, 0); return cv;
+  });
 }
+IMG.horse.onload = buildAtlases; if (IMG.horse.complete) buildAtlases();
+IMG.dirt.onload = () => { dirtPat = ctx.createPattern(IMG.dirt, 'repeat'); }; if (IMG.dirt.complete && IMG.dirt.naturalWidth) dirtPat = ctx.createPattern(IMG.dirt, 'repeat');
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function glass(x, y, w, h, r, edge) { rr(x, y, w, h, r); const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, 'rgba(255,255,255,.16)'); g.addColorStop(1, 'rgba(255,255,255,.04)'); ctx.fillStyle = 'rgba(6,16,12,.62)'; ctx.fill(); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = edge || 'rgba(255,224,138,.35)'; ctx.lineWidth = 1; ctx.stroke(); }
+
+function drawHorse(ci, cx, baseY, h) {
+  const c = S.C[ci], at = atlases && atlases[ci]; if (!at) return;
+  const fw = at.width / FR, fh = at.height, w = h * fw / fh;
+  const running = c.sprint > 0.02 || Math.abs(c.pos - c.dp) > 0.004;
+  const frame = running ? Math.floor(((c.cyc % 1) + 1) % 1 * FR) : 2;
+  const bob = running ? Math.sin(c.cyc * Math.PI * 2) * h * 0.02 : Math.sin(S.t * 1.6 + ci) * h * 0.008;
+  // soft ground shadow
+  ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.beginPath(); ctx.ellipse(cx, baseY + 1, w * 0.36, h * 0.07, 0, 0, 7); ctx.fill();
+  if (running) { ctx.globalAlpha = 0.25 + c.sprint * 0.3; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; for (let k = 0; k < 3; k++) { const yy = baseY - h * (0.2 + k * 0.22); ctx.beginPath(); ctx.moveTo(cx - w * 0.5 - 10 - k * 6, yy); ctx.lineTo(cx - w * 0.5 - 38 - k * 8, yy); ctx.stroke(); } ctx.globalAlpha = 1; }
+  if (i_leader === ci && c.pos > 0.02) { ctx.shadowColor = c.col; ctx.shadowBlur = 14; }
+  ctx.drawImage(at, frame * fw, 0, fw, fh, cx - w * 0.5, baseY - h + bob, w, h); ctx.shadowBlur = 0;
+}
+let i_leader = 0;
 function draw() {
-  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0d2a3a'); g.addColorStop(0.18, '#0b1d12'); g.addColorStop(1, '#06110a');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // header
+  i_leader = leader();
+  ctx.fillStyle = '#04100a'; ctx.fillRect(0, 0, W, H);
+  // ---- header: stadium photo + title ----
+  const st = IMG.stadium;
+  if (st.complete && st.naturalWidth) { const r = Math.max(W / st.naturalWidth, L.top / st.naturalHeight), w = st.naturalWidth * r, h = st.naturalHeight * r; ctx.drawImage(st, (W - w) / 2, (L.top - h) / 2, w, h); }
+  const hg = ctx.createLinearGradient(0, 0, 0, L.top); hg.addColorStop(0, 'rgba(3,10,6,.55)'); hg.addColorStop(0.55, 'rgba(3,10,6,.35)'); hg.addColorStop(1, 'rgba(3,10,6,.92)'); ctx.fillStyle = hg; ctx.fillRect(0, 0, W, L.top);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffe08a'; ctx.shadowColor = '#ff9a3c'; ctx.shadowBlur = 12; ctx.font = 'italic 900 ' + Math.round(W * 0.075) + 'px system-ui,sans-serif';
-  ctx.fillText('🏁 CURSA ȚĂRILOR', W / 2, L.top * 0.26); ctx.shadowBlur = 0;
-  ctx.fillStyle = '#d7f5e1'; ctx.font = '800 ' + Math.round(W * 0.029) + 'px system-ui,sans-serif';
-  ctx.fillText('SCRIE CODUL ȚĂRII ÎN CHAT · CADOURILE = IMPULS', W / 2, L.top * 0.5);
+  const tg = ctx.createLinearGradient(0, L.top * 0.12, 0, L.top * 0.42); tg.addColorStop(0, '#fff3c4'); tg.addColorStop(0.5, '#ffd34d'); tg.addColorStop(1, '#d98a1c');
+  ctx.font = 'italic 1000 ' + Math.round(W * 0.082) + 'px system-ui,sans-serif'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3; ctx.fillStyle = tg;
+  ctx.fillText('CURSA ȚĂRILOR', W / 2, L.top * 0.27); ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.fillStyle = '#e8fff0'; ctx.font = '800 ' + Math.round(W * 0.027) + 'px system-ui,sans-serif'; ctx.fillText('SCRIE CODUL ȚĂRII ÎN CHAT · CADOURILE = IMPULS', W / 2, L.top * 0.5);
   const tl = S.phase === 'race' ? Math.max(0, Math.ceil(ROUND_TIME - S.t)) : S.phase === 'result' ? 0 : ROUND_TIME;
   const dbl = S.dbl >= 0 && S.t - S.dbl < 15 && S.phase === 'race';
-  ctx.fillStyle = dbl ? '#ffd34d' : '#ffffffcc'; ctx.font = '900 ' + Math.round(W * 0.04) + 'px system-ui,sans-serif';
-  ctx.fillText((dbl ? '⚡ x2 ' + Math.ceil(15 - (S.t - S.dbl)) + 's · ' : '') + '⏱ ' + String(Math.floor(tl / 60)).padStart(2, '0') + ':' + String(tl % 60).padStart(2, '0') + ' · 🎯 ' + Math.round(S.boostSum * 100) + '/' + Math.round(S.goalB * 100), W / 2, L.top * 0.74);
-  // standings (top 3)
-  const order = [...S.C.keys()].sort((a, b) => S.C[b].pos - S.C[a].pos).slice(0, 3);
-  ctx.font = '800 ' + Math.round(W * 0.03) + 'px system-ui,sans-serif'; ctx.fillStyle = '#ffffffdd';
-  ctx.fillText(order.map((i, k) => (k + 1) + '.' + S.C[i].flag + Math.round(S.C[i].pos * 100) + '%').join('   '), W / 2, L.top * 0.93);
-  // lanes
-  const lh = L.laneH;
+  const pw = W * 0.9, px = (W - pw) / 2, py = L.top * 0.64, ph = L.top * 0.31;
+  glass(px, py, pw, ph, 12, dbl ? 'rgba(255,211,77,.9)' : undefined);
+  ctx.font = '900 ' + Math.round(W * 0.034) + 'px system-ui,sans-serif'; ctx.fillStyle = dbl ? '#ffd34d' : '#ffffff';
+  ctx.fillText((dbl ? '⚡ x2 ' + Math.ceil(15 - (S.t - S.dbl)) + 's  ' : '') + '⏱ ' + String(Math.floor(tl / 60)).padStart(2, '0') + ':' + String(tl % 60).padStart(2, '0') + '   🎯 ' + Math.round(S.boostSum * 100) + '/' + Math.round(S.goalB * 100), W / 2, py + ph * 0.34);
+  const order = [...S.C.keys()].sort((a, b) => S.C[b].pos - S.C[a].pos).slice(0, 3); const medals = ['🥇', '🥈', '🥉'];
+  ctx.font = '800 ' + Math.round(W * 0.03) + 'px system-ui,"Noto Color Emoji",sans-serif'; ctx.fillStyle = '#ffffffee';
+  ctx.fillText(order.map((i, k) => medals[k] + S.C[i].flag + ' ' + Math.round(S.C[i].pos * 100) + '%').join('    '), W / 2, py + ph * 0.74);
+  // ---- track ----
+  const lh = L.laneH, tx0 = 0, tw = W;
   S.C.forEach((c, i) => {
     const y = L.laneTop + i * lh;
-    ctx.fillStyle = i % 2 ? '#1c6a30' : '#237a38'; ctx.fillRect(0, y, W, lh);
-    ctx.fillStyle = '#ffffff22'; ctx.fillRect(0, y, W, 1);
-    // flag chip + code
-    ctx.fillStyle = '#00000066'; ctx.fillRect(0, y, L.startX - 4, lh);
-    ctx.font = Math.round(lh * 0.55) + 'px system-ui,"Noto Color Emoji",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
-    ctx.fillText(c.flag, 3, y + lh * 0.45);
-    ctx.font = '900 ' + Math.round(lh * 0.26) + 'px system-ui,sans-serif'; ctx.fillStyle = c.col; ctx.fillText(c.code, 5, y + lh * 0.86);
-    // ghost name watermark
-    ctx.globalAlpha = 0.18; ctx.fillStyle = '#fff'; ctx.font = 'italic 900 ' + Math.round(lh * 0.5) + 'px system-ui,sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(c.name.toUpperCase(), W * 0.55, y + lh * 0.55); ctx.globalAlpha = 1;
-    const x = L.startX + c.dp * (L.finX - L.startX - 28);
-    horse(x + 14, y + lh * 0.55, lh / 30, c.col, c.phase, c.sprint, false);
-    if (i === leader() && c.pos > 0.02) { ctx.textAlign = 'left'; ctx.font = Math.round(lh * 0.4) + 'px system-ui,"Noto Color Emoji",sans-serif'; ctx.fillText('👑', x + 8, y + lh * 0.18); }
-    ctx.textAlign = 'left'; ctx.font = '800 ' + Math.round(lh * 0.22) + 'px system-ui,sans-serif'; ctx.fillStyle = '#ffffffcc';
-    ctx.fillText(c.sup > 0 ? '👥' + c.sup : '', x + 38, y + lh * 0.2);
+    if (dirtPat) { ctx.save(); ctx.translate(0, y); ctx.fillStyle = dirtPat; ctx.fillRect(0, 0, tw, lh); ctx.restore(); } else { ctx.fillStyle = '#8a6a45'; ctx.fillRect(0, y, tw, lh); }
+    ctx.fillStyle = i % 2 ? 'rgba(20,10,0,.32)' : 'rgba(20,10,0,.18)'; ctx.fillRect(0, y, tw, lh);
+    const lg = ctx.createLinearGradient(0, y, 0, y + lh); lg.addColorStop(0, 'rgba(0,0,0,.22)'); lg.addColorStop(0.2, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(0,0,0,.28)'); ctx.fillStyle = lg; ctx.fillRect(0, y, tw, lh);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(0, y + lh - 1, tw, 1.2);
   });
-  // start / finish
-  ctx.fillStyle = '#ffffffaa'; ctx.fillRect(L.startX - 4, L.laneTop, 2, S.C.length * lh);
-  const fx = L.finX - 4, ch = 8;
-  for (let r = 0; r < S.C.length * lh / ch; r++) for (let k = 0; k < 2; k++) { ctx.fillStyle = (r + k) % 2 ? '#111' : '#fff'; ctx.fillRect(fx + k * ch / 1.2, L.laneTop + r * ch, ch / 1.2, ch); }
-  S.spark.forEach((p) => { ctx.globalAlpha = clamp(p.life * 2, 0, 1); ctx.fillStyle = p.col; ctx.fillRect(p.x, p.y, 3, 3); }); ctx.globalAlpha = 1;
-  // bottom: gift legend + feed
-  ctx.fillStyle = '#04100a'; ctx.fillRect(0, L.bot, W, H - L.bot);
-  ctx.textAlign = 'center'; const gx = W / 5; Object.values(GIFTS).forEach((g2, i) => {
-    ctx.font = Math.round(W * 0.06) + 'px system-ui,"Noto Color Emoji",sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText(g2.e, gx * (i + 0.5), L.bot + (H - L.bot) * 0.2);
-    ctx.font = '900 ' + Math.round(W * 0.028) + 'px system-ui,sans-serif'; ctx.fillStyle = '#ffe08a'; ctx.fillText('+' + (g2.boost * 100).toFixed(1).replace('.0', '') + '%', gx * (i + 0.5), L.bot + (H - L.bot) * 0.42);
+  // lane progress glow under each horse
+  S.C.forEach((c, i) => { const y = L.laneTop + i * lh; ctx.fillStyle = c.col; ctx.globalAlpha = 0.5; ctx.fillRect(L.startX, y + lh - 3, (L.finX - L.startX) * c.dp, 2.4); ctx.globalAlpha = 1; });
+  // finish gantry
+  const fx = L.finX - 6, fh2 = S.C.length * lh, ch = 7;
+  for (let r = 0; r < fh2 / ch; r++) for (let k = 0; k < 2; k++) { ctx.fillStyle = (r + k) % 2 ? '#111' : '#fff'; ctx.fillRect(fx + k * ch, L.laneTop + r * ch, ch, Math.min(ch, fh2 - r * ch)); }
+  ctx.shadowColor = '#fff'; ctx.shadowBlur = 10; ctx.fillStyle = '#ffffff55'; ctx.fillRect(fx - 1, L.laneTop, 1.5, fh2); ctx.shadowBlur = 0;
+  // start line
+  ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(L.startX - 3, L.laneTop, 2, fh2);
+  // horses + badges (top to bottom so lower lanes overlap upper ones: depth)
+  S.C.forEach((c, i) => {
+    const y = L.laneTop + i * lh, x = L.startX + c.dp * (L.finX - L.startX - lh * 2.0) + lh * 1.05;
+    drawHorse(i, x, y + lh * 0.94, lh * 1.3);
+    if (i_leader === i && c.pos > 0.02) { ctx.font = Math.round(lh * 0.42) + 'px system-ui,"Noto Color Emoji",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑', x + lh * 0.2, y - lh * 0.02); }
+    if (c.sup > 0) { const t = '👥 ' + c.sup, w = ctx.measureText(t).width; ctx.font = '800 ' + Math.round(lh * 0.24) + 'px system-ui,"Noto Color Emoji",sans-serif'; const tw2 = ctx.measureText(t).width + 10; glass(x + lh * 0.9, y + lh * 0.04, tw2, lh * 0.3, 8, c.col); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(t, x + lh * 0.9 + tw2 / 2, y + lh * 0.2); }
+    // flag badge
+    glass(3, y + 2, L.startX - 8, lh - 4, 9, c.col);
+    ctx.textAlign = 'center'; ctx.font = Math.round(lh * 0.5) + 'px system-ui,"Noto Color Emoji",sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText(c.flag, (L.startX - 2) / 2, y + lh * 0.38);
+    ctx.font = '900 ' + Math.round(lh * 0.25) + 'px system-ui,sans-serif'; ctx.fillStyle = c.col; ctx.fillText(c.code, (L.startX - 2) / 2, y + lh * 0.78);
   });
-  ctx.textAlign = 'left'; ctx.font = '700 ' + Math.round(W * 0.03) + 'px system-ui,sans-serif';
-  S.feed.slice(0, 3).forEach((f, i) => { ctx.globalAlpha = clamp(1.2 - (S.t - f.at) * 0.03, 0.35, 1) * (1 - i * 0.2); ctx.fillStyle = '#e8fff0'; ctx.fillText(f.msg.slice(0, 54), 8, L.bot + (H - L.bot) * (0.62 + i * 0.16)); }); ctx.globalAlpha = 1;
-  // countdown banner
-  if (S.phase === 'count') { ctx.textAlign = 'center'; ctx.fillStyle = '#000a'; ctx.fillRect(0, H * 0.4, W, H * 0.16); ctx.fillStyle = '#ffe08a'; ctx.font = '1000 ' + Math.round(W * 0.2) + 'px system-ui,sans-serif'; ctx.fillText(String(Math.max(1, Math.ceil(S.count))), W / 2, H * 0.48); }
+  S.spark.forEach((p) => { ctx.globalAlpha = clamp(p.life * 2, 0, 0.8); ctx.fillStyle = '#d9bf93'; ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, 7); ctx.fill(); }); ctx.globalAlpha = 1;
+  // ---- bottom panel ----
+  const bg2 = ctx.createLinearGradient(0, L.bot, 0, H); bg2.addColorStop(0, '#07150d'); bg2.addColorStop(1, '#030a06'); ctx.fillStyle = bg2; ctx.fillRect(0, L.bot, W, H - L.bot);
+  const gh = (H - L.bot) * 0.36, gw = (W - 12) / 5;
+  Object.values(GIFTS).forEach((g2, i) => { const x = 6 + i * gw + 2; glass(x, L.bot + 6, gw - 4, gh, 10); ctx.textAlign = 'center'; ctx.font = Math.round(gh * 0.5) + 'px system-ui,"Noto Color Emoji",sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText(g2.e, x + (gw - 4) / 2, L.bot + 6 + gh * 0.36); ctx.font = '900 ' + Math.round(gh * 0.26) + 'px system-ui,sans-serif'; ctx.fillStyle = '#ffd34d'; ctx.fillText('+' + (g2.boost * 100).toFixed(1).replace('.0', '') + '%', x + (gw - 4) / 2, L.bot + 6 + gh * 0.82); });
+  ctx.textAlign = 'left'; ctx.font = '700 ' + Math.round(W * 0.029) + 'px system-ui,"Noto Color Emoji",sans-serif';
+  S.feed.slice(0, 3).forEach((f, i) => { const y = L.bot + 6 + gh + 14 + i * (H - L.bot - gh - 18) / 3; ctx.globalAlpha = clamp(1.25 - (S.t - f.at) * 0.03, 0.4, 1) * (1 - i * 0.18); ctx.fillStyle = '#e8fff0'; ctx.fillText(f.msg.slice(0, 56), 10, y); }); ctx.globalAlpha = 1;
+  // vignette
+  const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.8); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  if (S.phase === 'count') { ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, H * 0.4, W, H * 0.16); ctx.shadowColor = '#ff9a3c'; ctx.shadowBlur = 24; ctx.fillStyle = '#ffe08a'; ctx.font = '1000 ' + Math.round(W * 0.2) + 'px system-ui,sans-serif'; ctx.fillText(String(Math.max(1, Math.ceil(S.count))), W / 2, H * 0.48); ctx.shadowBlur = 0; }
   S.confetti.forEach((p) => { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.col; ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); ctx.restore(); });
   if (S.flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + S.flash * 0.35 + ')'; ctx.fillRect(0, 0, W, H); }
 }
