@@ -31,7 +31,7 @@
 </div><script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id), canvas=$('arena'), ctx=canvas.getContext('2d',{alpha:false});
-const ASSET='assets/', pictures={frames:new Image(),idle:new Image(),arena:new Image()}; pictures.frames.src=ASSET+'fight_frames.webp';pictures.idle.src=ASSET+'fight_idle.webp';pictures.arena.src=ASSET+'arena_atmosphere.webp';
+const ASSET='assets/', pictures={frames:new Image(),idle:new Image(),putinPunch:new Image(),arena:new Image()}; pictures.frames.src=ASSET+'fight_frames.webp';pictures.idle.src=ASSET+'fight_idle.webp';pictures.putinPunch.src=ASSET+'putin_punch.webp';pictures.arena.src=ASSET+'arena_atmosphere.webp';
 const TYPES={rose:{emoji:'🌹',label:'Trandafir',points:1,damage:3},heart:{emoji:'💖',label:'Inimă',points:5,damage:7},flame:{emoji:'🔥',label:'Flacără',points:10,damage:12},rocket:{emoji:'🚀',label:'Rachetă',points:35,damage:22},lion:{emoji:'🦁',label:'Leu',points:75,damage:37}};
 const S={running:false,round:1,hp:[100,100],wins:[0,0],teamPoints:[0,0],time:90,selected:-1,users:new Map(),events:[],anim:null,pending:[],particles:[],timeStamp:0,last:0,shake:0,flash:0,sound:false,sock:null,activeTab:'battle',frame:0,combo:0,lastAttackAt:0,clockms:0,displayNames:['TRUMP','PUTIN'],seenIds:new Set()};
 let w=400,h=320,dpr=1,audio=null,nonce=0,lastWarn=0;
@@ -79,9 +79,23 @@ function drawFighters(t,frame){
   return;
  }
  if(S.anim&&S.anim.side===1){
-  const p=limit(S.anim.elapsed/S.anim.duration,0,1),attack=Math.sin(p*Math.PI);
-  body(0,-attack*.10,-attack*w*.012);body(1,-attack*.19,-attack*w*.09);
-  glowCircle(w*(.35+attack*.01),h*.47,18+attack*25,'#66afff48');return;
+  // Putin has an actual nine-frame left-facing punch, not a leaning idle portrait.
+  // Only advancing gift events enter this branch. Idle pose stays non-attacking.
+  const progress=limit(S.anim.elapsed/S.anim.duration,0,1);
+  const frameIndex=Math.min(8,Math.floor(progress*9));
+  const impact=Math.sin(progress*Math.PI);
+  body(0,-impact*.1,-impact*w*.045);
+  if(pictures.putinPunch.complete&&pictures.putinPunch.naturalWidth){
+   const sourceW=482,sourceH=362;
+   const destW=w*.76,destH=destW*sourceH/sourceW;
+   const px=w*.30-impact*w*.025;
+   const py=footY-destH+bob2*.3;
+   ctx.drawImage(pictures.putinPunch,(frameIndex%3)*sourceW,Math.floor(frameIndex/3)*sourceH,sourceW,sourceH,px,py,destW,destH);
+  }else{
+   // Safe fallback while the sprite atlas loads.
+   body(1,-impact*.12,-impact*w*.035);
+  }
+  return;
  }
  body(0);body(1);
 }
@@ -89,5 +103,5 @@ function paint(now){const dt=Math.min(.05,(now-(S.last||now))/1000);S.last=now;i
  ctx.save();ctx.translate((Math.random()-.5)*S.shake,(Math.random()-.5)*S.shake);background(now/1000);let frame=0;if(S.anim?.side===0){const p=limit(S.anim.elapsed/S.anim.duration,0,1);frame=Math.min(8,Math.floor(p*9))}drawFighters(now/1000,frame);ctx.restore();for(const p of S.particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=150*dt;p.life-=dt;ctx.fillStyle=p.col;ctx.globalAlpha=limit(p.life,0,1);ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;S.particles=S.particles.filter(p=>p.life>0);if(S.flash){ctx.fillStyle='rgba(255,220,157,'+(S.flash*.16)+')';ctx.fillRect(0,0,w,h)}requestAnimationFrame(paint)}
 function disconnect(){if(S.sock){S.sock.onclose=null;S.sock.close();S.sock=null} $('status').textContent='● DEMO';$('connectStatus').textContent='● Deconectat • doar simulare locală'}
 function connect(){const url=$('relay').value.trim();if(!/^wss:\/\/[a-z0-9.-]+(?::\d+)?(?:[/?#][^\s]*)?$/i.test(url)){notify('Adresa trebuie să înceapă cu wss://');return}disconnect();$('connectStatus').textContent='◌ Conectare în curs...';try{const sock=new WebSocket(url);S.sock=sock;sock.onopen=()=>{if(S.sock===sock){$('connectStatus').textContent='● Conectat la server WSS — identitatea evenimentelor depinde de server';$('status').textContent='● RELAY';pushEvent('Serverul WSS este conectat. Evenimentele reale necesită validare pe server.')}};sock.onmessage=ev=>{if(S.sock!==sock)return;try{const data=JSON.parse(ev.data);if(data.type==='join'){const s=data.team==='trump'?0:data.team==='putin'?1:-1;join(data.username,s)}else if(data.type==='gift'){const s=data.team==='trump'?0:data.team==='putin'?1:-1;award(s,data.gift,data.count,data.username,true,data.id)}else if(data.type==='chat'){pushEvent('💬 '+String(data.username||'Spectator').slice(0,22)+': '+String(data.text||'').slice(0,70))}}catch(err){console.warn('Malformed relay event')}};sock.onerror=()=>{if(S.sock===sock)$('connectStatus').textContent='● Conexiunea a eșuat'};sock.onclose=()=>{if(S.sock===sock)disconnect()}}catch(e){disconnect();notify('Server indisponibil')}}
-$('start').addEventListener('click',start);$('again').addEventListener('click',()=>{S.round++;start()});$('choose0').addEventListener('click',()=>join('Tu',0));$('choose1').addEventListener('click',()=>join('Tu',1));document.querySelectorAll('[data-gift]').forEach(el=>el.addEventListener('click',()=>{if(S.selected<0){notify('Alege întâi o echipă');return}award(S.selected,el.dataset.gift,1,'Tu',false,null)}));document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>showTab(el.dataset.tab)));$('send').addEventListener('click',handleChat);$('chat').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();handleChat()}});$('sound').addEventListener('click',()=>{S.sound=!S.sound;$('sound').textContent=S.sound?'🔊':'🔇';sound(610,.09)});$('settingsBtn').addEventListener('click',()=>{$('settings').hidden=false});$('closeSettings').addEventListener('click',()=>{$('settings').hidden=true});$('connect').addEventListener('click',connect);$('disconnect').addEventListener('click',disconnect);window.addEventListener('pagehide',disconnect);window.GameV3={version:'3.0',demo:true,getState:()=>({running:S.running,hp:[...S.hp],teamPoints:[...S.teamPoints],participants:S.users.size,score:[...S.wins],time:S.time}),injectDemoGift:(side,type,count=1,name='Demo')=>award(side,type,count,name,false,null)};refresh();requestAnimationFrame(paint);
+$('start').addEventListener('click',start);$('again').addEventListener('click',()=>{S.round++;start()});$('choose0').addEventListener('click',()=>join('Tu',0));$('choose1').addEventListener('click',()=>join('Tu',1));document.querySelectorAll('[data-gift]').forEach(el=>el.addEventListener('click',()=>{if(S.selected<0){notify('Alege întâi o echipă');return}award(S.selected,el.dataset.gift,1,'Tu',false,null)}));document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>showTab(el.dataset.tab)));$('send').addEventListener('click',handleChat);$('chat').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();handleChat()}});$('sound').addEventListener('click',()=>{S.sound=!S.sound;$('sound').textContent=S.sound?'🔊':'🔇';sound(610,.09)});$('settingsBtn').addEventListener('click',()=>{$('settings').hidden=false});$('closeSettings').addEventListener('click',()=>{$('settings').hidden=true});$('connect').addEventListener('click',connect);$('disconnect').addEventListener('click',disconnect);window.addEventListener('pagehide',disconnect);window.GameV3={version:'3.1',demo:true,getState:()=>({running:S.running,hp:[...S.hp],teamPoints:[...S.teamPoints],participants:S.users.size,score:[...S.wins],time:S.time}),injectDemoGift:(side,type,count=1,name='Demo')=>award(side,type,count,name,false,null)};refresh();requestAnimationFrame(paint);
 })();</script></body></html>
