@@ -45,3 +45,7 @@ Joc 2D separat, construit după tiparul „country race” din LIVE-urile TikTok
 - „Boții” de test sunt marcați 🤖 și nu sunt prezentați ca utilizatori TikTok. `?live=1` ascunde comenzile pentru transmisie.
 - Același relay WSS și aceeași regulă de statusuri ca la jocul de box: fără confirmare explicită de la relay rămâne „NEVERIFICAT”. Nu e conectat la TikTok LIVE; relay-ul nu e inclus.
 - Alegerea acestui format s-a bazat pe o singură captură cu 1,7K spectatori; retenția nu e măsurată.
+
+## Cadouri TikTok reale (relay) — vezi `relay/README.md`
+`relay/` conține serverul Node care citește evenimentele LIVE (biblioteca neoficială `tiktok-live-connector`) și le trimite jocului prin WebSocket. Testat **doar cu simulare** (mod `MOCK=1`): cheie greșită respinsă, conectare automată din link, cursă pornită singură, evenimente care mișcă caii. **Netestat cu TikTok real.**
+Link LIVE (după ce pagina e găzduită, ex. GitHub Pages): `race.html?relay=wss://SERVERUL-TAU&key=PAROLA&live=1`.

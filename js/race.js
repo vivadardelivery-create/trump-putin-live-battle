@@ -402,7 +402,7 @@ function setStatus() { $('status').textContent = S.sock && S.relayOpen ? (S.veri
 function disc() { if (S.sock) { S.sock.onclose = null; S.sock.close(); S.sock = null; } S.relayOpen = false; S.verified = false; setStatus(); $('cstat').textContent = '● Deconectat'; }
 function conn() {
   const url = $('relay').value.trim();
-  if (!/^wss:\/\/[a-z0-9.-]+(?::\d+)?(?:[/?#][^\s]*)?$/i.test(url)) { $('cstat').textContent = 'Adresa trebuie să înceapă cu wss://'; return; }
+  if (!/^wss:\/\/[a-z0-9.-]+(?::\d+)?(?:[/?#][^\s]*)?$/i.test(url) && !/^ws:\/\/(localhost|127\.0\.0\.1)(?::\d+)?(?:[/?#][^\s]*)?$/i.test(url)) { $('cstat').textContent = 'Adresa trebuie să înceapă cu wss:// (ws:// doar pentru localhost, test)'; return; }
   disc(); $('cstat').textContent = '◌ Conectare...';
   try {
     const s = new WebSocket(url); S.sock = s;
@@ -426,7 +426,14 @@ const openHall = () => { renderHall(); $('hall').hidden = false; };
 $('hallBtn').addEventListener('click', openHall); $('hallBtn2').addEventListener('click', openHall); $('closeHall').addEventListener('click', () => { $('hall').hidden = true; });
 $('set').addEventListener('click', () => { $('settings').hidden = false; }); $('closeSet').addEventListener('click', () => { $('settings').hidden = true; });
 $('conn').addEventListener('click', conn); $('disc').addEventListener('click', disc); window.addEventListener('pagehide', () => { disc(); save(); });
-if (new URLSearchParams(location.search).get('live') === '1') $('ctl').hidden = true; // clean broadcast view
+const QP = new URLSearchParams(location.search);
+if (QP.get('live') === '1') $('ctl').hidden = true; // clean broadcast view
+// one-link LIVE mode: ?relay=wss://host&key=SECRET&live=1 -> connects, starts the first race by itself, keeps the screen on
+if (QP.get('relay')) {
+  let u = QP.get('relay'); if (QP.get('key') && !/[?&]key=/.test(u)) u += (u.includes('?') ? '&' : '/?') + 'key=' + encodeURIComponent(QP.get('key'));
+  $('relay').value = u; setTimeout(conn, 300);
+}
+if (QP.get('live') === '1') { setTimeout(() => { if (S.phase === 'intro') begin(); }, 900); try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); }); } catch (e) { /* optional */ } }
 
 layout(); join('Tu', 0, true);
 let last = performance.now(), raf = 0;

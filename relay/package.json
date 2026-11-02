@@ -1,0 +1,10 @@
+{
+  "name": "cursa-relay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Relay: TikTok LIVE events (unofficial connector) -> WebSocket -> game page",
+  "scripts": { "start": "node server.js", "mock": "MOCK=1 node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "tiktok-live-connector": "^2.5.0", "ws": "^8.18.0" }
+}
