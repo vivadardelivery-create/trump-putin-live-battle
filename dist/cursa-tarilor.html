@@ -400,6 +400,7 @@ function draw() {
   if (snipe) { const a = 0.12 + 0.1 * Math.sin(S.t * 8); ctx.fillStyle = 'rgba(255,40,40,' + a + ')'; ctx.fillRect(0, L.top, W, L.bot - L.top); }
   // callouts
   ctx.textAlign = 'center';
+  if (S.relayMsg) { ctx.font = '800 ' + Math.round(W * 0.026) + 'px system-ui,"Noto Color Emoji",sans-serif'; const rw = ctx.measureText(S.relayMsg).width + 16; glass(6, L.top + 4 + (S.comm ? 30 : 0), rw, 20, 10, 'rgba(255,255,255,.3)'); ctx.textAlign = 'left'; ctx.fillStyle = /PAROL|invalid|eroare/.test(S.relayMsg) ? '#ff8a8a' : /mock|conectat|TIKTOK/.test(S.relayMsg) && !/deconectat/.test(S.relayMsg) ? '#9dffb8' : '#ffe08a'; ctx.fillText(S.relayMsg, 14, L.top + 14 + (S.comm ? 30 : 0)); ctx.textAlign = 'center'; }
   if (S.phase === 'count') {
     const k = Math.ceil(S.count), txt = S.count > 2.6 ? 'PE LOCURI…' : S.count > 1.2 ? 'FIȚI GATA…' : 'START!';
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, H * 0.4, W, H * 0.16); ctx.shadowColor = '#ff9a3c'; ctx.shadowBlur = 24; ctx.fillStyle = '#ffe08a'; ctx.font = '1000 ' + Math.round(W * (S.count > 1.2 ? 0.11 : 0.17)) + 'px system-ui,sans-serif'; ctx.fillText(txt, W / 2, H * 0.48); ctx.shadowBlur = 0;
@@ -436,19 +437,30 @@ function renderHall() {
 }
 
 // ---------- relay (same protocol as the boxing game; status is never assumed) ----------
-function setStatus() { $('status').textContent = S.sock && S.relayOpen ? (S.verified ? '● TIKTOK LIVE (raportat de relay)' : '● RELAY NEVERIFICAT') : S.bots ? '● DEMO · BOȚI' : '● DEMO'; }
-function disc() { if (S.sock) { S.sock.onclose = null; S.sock.close(); S.sock = null; } S.relayOpen = false; S.verified = false; setStatus(); $('cstat').textContent = '● Deconectat'; }
-function conn() {
-  const url = $('relay').value.trim();
-  if (!/^wss:\/\/[a-z0-9.-]+(?::\d+)?(?:[/?#][^\s]*)?$/i.test(url) && !/^ws:\/\/(localhost|127\.0\.0\.1)(?::\d+)?(?:[/?#][^\s]*)?$/i.test(url)) { $('cstat').textContent = 'Adresa trebuie să înceapă cu wss:// (ws:// doar pentru localhost, test)'; return; }
-  disc(); $('cstat').textContent = '◌ Conectare...';
+function relayMsg(t) { S.relayMsg = t; }
+function setStatus() {
+  $('status').textContent = S.sock && S.relayOpen ? (S.verified ? '● TIKTOK LIVE (raportat de relay)' : '● RELAY NEVERIFICAT') : S.bots ? '● DEMO · BOȚI' : '● DEMO';
+}
+let retryT = 0, retryDelay = 2000;
+function closeSock() { if (S.sock) { S.sock.onclose = null; try { S.sock.close(); } catch (e) { /* closed */ } S.sock = null; } S.relayOpen = false; S.verified = false; setStatus(); }
+function disc() { S.wantRelay = false; clearTimeout(retryT); closeSock(); relayMsg(''); $('cstat').textContent = '● Deconectat'; }
+function scheduleRetry(why) { // keeps trying (free hosts may be asleep); gives up only on a wrong key
+  relayMsg('● relay: ' + why + ' · reîncerc…'); clearTimeout(retryT); retryT = setTimeout(() => { if (S.wantRelay) openSock(); }, retryDelay); retryDelay = Math.min(retryDelay * 2, 30000);
+}
+function openSock() {
+  const url = $('relay').value.trim(); closeSock(); relayMsg('● relay: se conectează…'); $('cstat').textContent = '◌ Conectare...';
   try {
     const s = new WebSocket(url); S.sock = s;
-    s.onopen = () => { if (S.sock !== s) return; S.relayOpen = true; S.verified = false; setStatus(); $('cstat').textContent = '● Conectat, dar NEVERIFICAT: nu am primit confirmarea unei camere TikTok LIVE.'; };
-    s.onmessage = (m) => { if (S.sock !== s) return; try { const d = JSON.parse(m.data); if (d.type === 'status') { S.verified = d.tiktok === 'connected' && typeof d.roomId === 'string' && d.roomId.length > 0; setStatus(); $('cstat').textContent = S.verified ? '● Relay raportează camera ' + d.roomId.slice(0, 24) + ' (nu e verificat de joc)' : '● Relay: TikTok ' + String(d.tiktok || 'necunoscut').slice(0, 30); } else ev(d); } catch (e) { /* malformed */ } };
-    s.onerror = () => { if (S.sock === s) $('cstat').textContent = '● Conexiune eșuată'; };
-    s.onclose = () => { if (S.sock === s) disc(); };
-  } catch (e) { disc(); }
+    s.onopen = () => { if (S.sock !== s) return; retryDelay = 2000; S.relayOpen = true; S.verified = false; setStatus(); relayMsg('● relay: conectat (neverificat)'); $('cstat').textContent = '● Conectat, dar NEVERIFICAT: nu am primit confirmarea unei camere TikTok LIVE.'; };
+    s.onmessage = (m) => { if (S.sock !== s) return; try { const d = JSON.parse(m.data); if (d.type === 'status') { S.verified = d.tiktok === 'connected' && typeof d.roomId === 'string' && d.roomId.length > 0; setStatus(); relayMsg(S.verified ? '● TIKTOK LIVE (raportat de relay)' : '● relay: TikTok = ' + String(d.tiktok || '?').slice(0, 24)); $('cstat').textContent = S.verified ? '● Relay raportează camera ' + String(d.roomId).slice(0, 24) + ' (nu e verificat de joc)' : '● Relay: TikTok ' + String(d.tiktok || 'necunoscut').slice(0, 30); } else ev(d); } catch (e) { /* malformed */ } };
+    s.onerror = () => { /* onclose follows */ };
+    s.onclose = (e) => { if (S.sock !== s) return; S.sock = null; S.relayOpen = false; S.verified = false; setStatus(); if (e.code === 4401) { S.wantRelay = false; relayMsg('● relay: PAROLĂ GREȘITĂ (key) · nu mai reîncerc'); $('cstat').textContent = '● Parolă greșită'; } else scheduleRetry('deconectat'); };
+  } catch (e) { scheduleRetry('eroare'); }
+}
+function conn() {
+  const url = $('relay').value.trim();
+  if (!/^wss:\/\/[a-z0-9.-]+(?::\d+)?(?:[/?#][^\s]*)?$/i.test(url) && !/^ws:\/\/(localhost|127\.0\.0\.1)(?::\d+)?(?:[/?#][^\s]*)?$/i.test(url)) { $('cstat').textContent = 'Adresa trebuie să înceapă cu wss:// (ws:// doar pentru localhost, test)'; relayMsg('● relay: adresă invalidă'); return; }
+  S.wantRelay = true; retryDelay = 2000; openSock();
 }
 
 // ---------- UI ----------
@@ -463,7 +475,7 @@ $('bots').addEventListener('click', () => { S.bots = !S.bots; $('bots').textCont
 const openHall = () => { renderHall(); $('hall').hidden = false; };
 $('hallBtn').addEventListener('click', openHall); $('hallBtn2').addEventListener('click', openHall); $('closeHall').addEventListener('click', () => { $('hall').hidden = true; });
 $('set').addEventListener('click', () => { $('settings').hidden = false; }); $('closeSet').addEventListener('click', () => { $('settings').hidden = true; });
-$('conn').addEventListener('click', conn); $('disc').addEventListener('click', disc); window.addEventListener('pagehide', () => { disc(); save(); });
+$('conn').addEventListener('click', conn); $('disc').addEventListener('click', disc); window.addEventListener('pagehide', () => { S.wantRelay = false; closeSock(); save(); });
 const QP = new URLSearchParams(location.search);
 if (QP.get('live') === '1') $('ctl').hidden = true; // clean broadcast view
 // one-link LIVE mode: ?relay=wss://host&key=SECRET&live=1 -> connects, starts the first race by itself, keeps the screen on
