@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#0b1d12"><title>CURSA ȚĂRILOR — LIVE</title>
+<meta name="description" content="Cursa țărilor pentru TikTok LIVE: spectatorii scriu codul țării, cadourile împing calul înainte. Prototip.">
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;background:#050a07;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}
+body{display:flex;justify-content:center;touch-action:manipulation}
+.app{position:relative;width:100%;max-width:540px;height:100dvh;display:flex;flex-direction:column;background:#0b1d12;overflow:hidden}
+canvas{display:block;width:100%;flex:1;min-height:0}
+.ctl{flex:none;background:#08130c;border-top:1px solid #1f3a28;padding:6px 8px calc(env(safe-area-inset-bottom) + 6px);display:flex;flex-direction:column;gap:6px}
+.ctl[hidden]{display:none}
+.row{display:flex;gap:5px;align-items:center}
+select,input,button{font:inherit}
+select,input{flex:1;min-width:0;background:#0f2216;border:1px solid #2c5a3c;color:#fff;border-radius:8px;padding:8px;font-size:12px}
+button{cursor:pointer;border:1px solid #3d7a52;background:#143222;color:#e8fff0;border-radius:8px;padding:8px 6px;font-weight:800;font-size:11px}
+button:active{transform:scale(.96)}
+.g{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px}.g b{font-size:20px}.g span{font-size:9px;color:#ffe08a}
+.tag{font-size:9px;font-weight:900;letter-spacing:.8px;border-radius:99px;border:1px solid #6b5367;background:#2a1a28;padding:6px 9px;color:#ffb8c1;white-space:nowrap}
+.overlay{position:absolute;inset:0;background:#030805e6;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(8px)}
+.overlay[hidden]{display:none!important}
+.dialog{width:100%;max-width:390px;max-height:94dvh;overflow:auto;text-align:center;background:linear-gradient(160deg,#1c3a28,#0b1a11);border:1px solid #4d8a63;border-radius:18px;padding:20px 16px}
+.dialog h2{margin:6px 0;font-size:30px;font-style:italic;font-weight:1000;color:#ffe08a}.dialog p{color:#c8e6d2;font-size:12px;line-height:1.5}
+.primary{width:100%;margin-top:10px;padding:13px;border:0;border-radius:10px;background:linear-gradient(110deg,#ffe6a2,#eaa137);color:#311d0b;font-weight:1000;font-size:13px}
+.tiny{font-size:10px!important;color:#86a592!important}
+.cfg{text-align:left}.cfg label{display:block;margin-top:10px;font-size:10px;font-weight:900;color:#a9d3b7}
+</style></head><body><div class="app" id="app">
+<canvas id="c" aria-label="Cursa țărilor, randată pe canvas"></canvas>
+<div class="ctl" id="ctl">
+ <div class="row"><span id="status" class="tag">● DEMO</span><select id="myc" aria-label="Țara ta"></select><button id="bots">🤖 BOȚI: OFF</button><button id="set">⚙️</button></div>
+ <div class="row"><button class="g" data-g="rose"><b>🌹</b><span>+1.2%</span></button><button class="g" data-g="heart"><b>💖</b><span>+3%</span></button><button class="g" data-g="flame"><b>🔥</b><span>+6%</span></button><button class="g" data-g="rocket"><b>🚀</b><span>+12%</span></button><button class="g" data-g="lion"><b>🦁</b><span>+25%</span></button></div>
+ <div class="row"><input id="chat" maxlength="60" placeholder="Scrie codul țării (RO, US, BR…)" autocomplete="off"><button id="send">TRIMITE</button></div>
+</div>
+<div class="overlay" id="intro"><div class="dialog"><div class="tiny">PROTOTIP · CURSA ȚĂRILOR</div><div style="font-size:42px">🏇🏁🌍</div><h2>CURSA ȚĂRILOR</h2><p>Scrie <b>codul țării tale</b> în chat (RO, US, BR, TR…). Cadourile 🌹💖🔥🚀🦁 împing <b>calul țării tale</b> spre linia de sosire. Prima țară ajunsă câștigă.</p><button class="primary" id="start">▶ PORNEȘTE CURSA</button><p class="tiny">Mod demo local · fără cadouri TikTok reale · „boții” sunt simulări marcate ca atare</p></div></div>
+<div class="overlay" id="result" hidden><div class="dialog"><div class="tiny">REZULTATUL CURSEI</div><div style="font-size:54px" id="rFlag">🏆</div><h2 id="rTitle">CÂȘTIGĂTOR</h2><p id="rText"></p><p class="tiny" id="rBoard"></p><button class="primary" id="again">↻ CURSA URMĂTOARE</button></div></div>
+<div class="overlay" id="settings" hidden><div class="dialog cfg"><h2 style="font-size:22px">⚙️ Setări LIVE</h2><p>Acum este un <b>demo local</b>. Evenimentele TikTok LIVE reale NU sunt conectate. „TIKTOK LIVE” apare doar dacă un relay trimite <code>{"type":"status","tiktok":"connected","roomId":"…"}</code>; o conexiune WSS singură nu dovedește nimic.</p><label for="relay">ADRESA RELAY (WSS)</label><input id="relay" placeholder="wss://serverul-tau.example/live" inputmode="url" spellcheck="false"><p class="tiny" id="cstat">● Deconectat</p><div class="row"><button id="conn">CONECTEAZĂ</button><button id="disc">DECONECTEAZĂ</button></div><button class="primary" id="closeSet">ÎNAPOI</button><p class="tiny">Evenimente: {"type":"gift","username":"x","gift":"rose","count":1,"id":"unic","team":"RO"} · {"type":"chat","username":"x","text":"RO"} · {"type":"like","username":"x","count":5}. Nu pune chei TikTok în acest cod public.</p></div></div>
+</div><script type="module" src="js/race.js"></script></body></html>

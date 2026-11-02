@@ -36,3 +36,10 @@ Pune `assets/faces/trump.jpg` și `assets/faces/putin.jpg` (frontale) și sunt p
 ## Structură
 `index.html` (UI) · `js/rig.js` (schelet + skinning) · `js/anim.js` (clipuri) · `js/chars.js` (parametri personaje) · `js/stage.js` (ring, lumini, cameră) · `js/game.js` (reguli, UI, relay).
 Hook de diagnostic: `window.GameV4.debug.advance(sec)` rulează simularea determinist.
+
+## Cursa țărilor (`race.html`)
+Joc 2D separat, construit după tiparul „country race” din LIVE-urile TikTok: 10 țări cu steag și cal, spectatorii scriu codul țării (RO, US, BR…), cadourile/like-urile/chat-ul împing calul țării lor spre linia de sosire, victorii pe țară (localStorage), MVP, țintă cu x2, bonus pentru ultimul loc, revanșă automată. Tot desenul e făcut în cod (nu copiază artă din alte LIVE-uri).
+- Nimic nu mișcă un cal în afara evenimentelor; la 100 s câștigă cel din față.
+- „Boții” de test sunt marcați 🤖 și nu sunt prezentați ca utilizatori TikTok. `?live=1` ascunde comenzile pentru transmisie.
+- Același relay WSS și aceeași regulă de statusuri ca la jocul de box: fără confirmare explicită de la relay rămâne „NEVERIFICAT”. Nu e conectat la TikTok LIVE; relay-ul nu e inclus.
+- Alegerea acestui format s-a bazat pe o singură captură cu 1,7K spectatori; retenția nu e măsurată.
