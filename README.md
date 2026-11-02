@@ -10,6 +10,9 @@ Joc satiric pentru browserul telefonului (Android/Chrome), servit static (GitHub
 - **Nicio lovitură nu pornește singură.** Atacul se pornește doar scoțând un eveniment din coada de cadouri; impactul/KO-ul victimei se declanșează la cadrul de contact al clipului atacatorului. Test: 20 s fără cadouri → 0 lovituri.
 - Păstrate: interfața TikTok LIVE, echipe, puncte, clasament, activitate, cadouri simulate (🌹💖 = jab, 🔥🚀🦁 = croșeu).
 
+## Fețe foto
+Pune `assets/faces/trump.jpg` și `assets/faces/putin.jpg` (frontale) și sunt proiectate pe capul 3D. Detalii în `assets/faces/README.md`. Proiecția e verificată doar cu o imagine de test sintetică; calitatea cu fotografii reale nu a fost evaluată.
+
 ## Limitări (declarate onest)
 - Personajele sunt **caricaturi 3D stilizate generate procedural în cod**, nu scanări fotorealiste și nu modele din Blender/Mixamo. Nu am avut modele licențiate ale persoanelor reale.
 - Animațiile sunt **keyframe-uri scrise manual** pe oase (nu motion capture). Calibrarea contactului pumn→cap este măsurată numeric (≈0,2 m între centrul mânușii și centrul capului, la ambii), dar croșeul lui Putin lovește puțin sub nivelul capului (diferență de înălțime), iar mișcările pot arăta rigid.

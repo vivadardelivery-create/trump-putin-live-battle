@@ -44,7 +44,13 @@ function makeFighter(spec, idx) {
     else { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
     actions[name] = a;
   }
-  const f = { idx, spec, ch, mixer, actions, meta, cur: null, curName: '', state: 'guard' };
+  const f = { idx, spec, ch, mixer, actions, meta, cur: null, curName: '', state: 'guard', faceLoaded: false };
+  if (spec.face) { // optional owner-supplied photo; if the file is absent the stylised head stays
+    const img = new Image();
+    img.onload = () => { ch.setFace(img, spec.face.crop); f.faceLoaded = true; };
+    img.onerror = () => console.info('No face photo at ' + spec.face.src + ' — using stylised head');
+    img.src = spec.face.src;
+  }
   mixer.addEventListener('finished', (ev) => onFinished(f, ev.action));
   return f;
 }

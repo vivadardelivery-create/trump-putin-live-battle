@@ -2,7 +2,7 @@
 // but each has its own proportions, stance (Trump orthodox, Putin southpaw) and independent animation timing.
 export const CHARS = [
   {
-    id: 'trump', name: 'TRUMP', lead: 'L', scale: 1.03, bulk: 1.12, belly: 0.02,
+    id: 'trump', name: 'TRUMP', face: { src: 'assets/faces/trump.jpg', crop: { cx: 0.5, cy: 0.5, w: 1, h: 1 } }, lead: 'L', scale: 1.03, bulk: 1.12, belly: 0.02,
     skin: 0xe9a57a, suit: 0x24418c, trousers: 0x1d3475, glove: 0xd4172e, tie: 0xc8102e, tieLen: 0.36, hair: 0xe3b95a, brow: 0xc99a46,
     hairStyle: 'swoop', head: { rx: 0.105, ry: 0.125, rz: 0.1 },
     anim: {
@@ -14,7 +14,7 @@ export const CHARS = [
     },
   },
   {
-    id: 'putin', name: 'PUTIN', lead: 'R', scale: 0.97, bulk: 0.96, belly: 0,
+    id: 'putin', name: 'PUTIN', face: { src: 'assets/faces/putin.jpg', crop: { cx: 0.5, cy: 0.5, w: 1, h: 1 } }, lead: 'R', scale: 0.97, bulk: 0.96, belly: 0,
     skin: 0xe8c3a8, suit: 0x646d82, trousers: 0x4a5266, glove: 0x2468e6, tie: 0x18407f, tieLen: 0.3, hair: 0xb8a487, brow: 0x9a8668,
     hairStyle: 'short', head: { rx: 0.092, ry: 0.112, rz: 0.086 },
     anim: {

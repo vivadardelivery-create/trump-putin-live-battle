@@ -158,17 +158,19 @@ export function createCharacter(spec) {
   // head, face, hair (rigid on head bone)
   const hd = spec.head, skinM = mat(spec.skin, 0.55);
   const head = B('head');
-  part(sph, skinM, head, 0, 0.115, 0, hd.rx, hd.ry, hd.rz);
-  part(sph, skinM, head, 0.012, 0.045, 0, hd.rx * 0.88, hd.ry * 0.62, hd.rz * 0.92); // jaw/chin volume
+  const headMesh = part(sph, skinM, head, 0, 0.115, 0, hd.rx, hd.ry, hd.rz);
+  const jawMesh = part(sph, skinM, head, 0.012, 0.045, 0, hd.rx * 0.88, hd.ry * 0.62, hd.rz * 0.92); // jaw/chin volume
   for (const z of [-1, 1]) part(sph, skinM, head, 0, 0.12, z * (hd.rz + 0.005), 0.018, 0.034, 0.012); // ears
+  const faceParts = [];
+  const _p = part;
   const eyeW = mat(0xfafafa, 0.3), eyeD = mat(0x1b1b1b, 0.2), browM = mat(spec.brow, 0.8);
   for (const z of [-1, 1]) {
-    part(sph, eyeW, head, hd.rx * 0.82, 0.14, z * 0.038, 0.016, 0.012, 0.02);
-    part(sph, eyeD, head, hd.rx * 0.82 + 0.01, 0.14, z * 0.038, 0.007, 0.008, 0.009);
-    part(box, browM, head, hd.rx * 0.8, 0.168, z * 0.04, 0.012, 0.008, 0.045, 0, 0, 0).rotation.x = z * -0.18;
+    faceParts.push(part(sph, eyeW, head, hd.rx * 0.82, 0.14, z * 0.038, 0.016, 0.012, 0.02));
+    faceParts.push(part(sph, eyeD, head, hd.rx * 0.82 + 0.01, 0.14, z * 0.038, 0.007, 0.008, 0.009));
+    const brow = part(box, browM, head, hd.rx * 0.8, 0.168, z * 0.04, 0.012, 0.008, 0.045, 0, 0, 0); brow.rotation.x = z * -0.18; faceParts.push(brow);
   }
-  part(box, skinM, head, hd.rx + 0.006, 0.105, 0, 0.03, 0.05, 0.026, 0, 0, -0.25); // nose
-  part(box, mat(0x6e2d2d, 0.6), head, hd.rx * 0.78, 0.062, 0, 0.012, 0.011, 0.06); // mouth
+  faceParts.push(part(box, skinM, head, hd.rx + 0.006, 0.105, 0, 0.03, 0.05, 0.026, 0, 0, -0.25)); // nose
+  faceParts.push(part(box, mat(0x6e2d2d, 0.6), head, hd.rx * 0.78, 0.062, 0, 0.012, 0.011, 0.06)); // mouth
   const hairM = mat(spec.hair, 0.55);
   if (spec.hairStyle === 'swoop') {
     part(sph, hairM, head, -0.012, 0.185, 0, hd.rx * 1.06, 0.07, hd.rz * 1.06);
@@ -188,5 +190,34 @@ export function createCharacter(spec) {
   root.name = spec.id;
   root.add(mesh);
   if (spec.scale) root.scale.setScalar(spec.scale);
-  return { group: root, mesh, bones, skeleton, boneMap: Object.fromEntries(BONE_NAMES.map((n, i) => [n, bones[i]])) };
+  // Optional photo face: projected planar onto a front shell of the head ellipsoid (feathered edge).
+  // `img` is supplied by the project owner (assets/faces/*.jpg); nothing is bundled or downloaded here.
+  let facePatch = null;
+  function setFace(img, crop = {}) {
+    const N = 512, cv = document.createElement('canvas'); cv.width = cv.height = N;
+    const g = cv.getContext('2d');
+    const cw = (crop.w ?? 1) * img.width, ch = (crop.h ?? 1) * img.height;
+    const side = Math.min(cw, ch);
+    const cx = (crop.cx ?? 0.5) * img.width, cy = (crop.cy ?? 0.5) * img.height;
+    g.drawImage(img, cx - side / 2, cy - side / 2, side, side, 0, 0, N, N);
+    g.globalCompositeOperation = 'destination-in';
+    const grd = g.createRadialGradient(N / 2, N / 2, N * 0.22, N / 2, N / 2, N * 0.5);
+    grd.addColorStop(0, 'rgba(0,0,0,1)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, N, N);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const geo = new THREE.SphereGeometry(1, 40, 30, Math.PI - 1.15, 2.3, 0.3, Math.PI - 0.6);
+    const P = geo.attributes.position, UV = geo.attributes.uv;
+    for (let i = 0; i < P.count; i++) { UV.setXY(i, 0.5 - 0.5 * P.getZ(i) / 0.92, 0.5 + 0.5 * P.getY(i) / 0.95); }
+    const m = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false });
+    if (facePatch) { head.remove(facePatch); }
+    facePatch = new THREE.Mesh(geo, m);
+    facePatch.position.set(0, 0.115, 0); facePatch.scale.set(hd.rx * 1.02, hd.ry * 1.02, hd.rz * 1.02);
+    head.add(facePatch);
+    faceParts.forEach((o) => { o.visible = false; });
+    // photo faces need a taller skull so the mouth/chin lie inside the projected patch
+    jawMesh.visible = false; headMesh.scale.set(hd.rx, hd.ry * 1.16, hd.rz); headMesh.position.y = 0.1;
+    facePatch.scale.set(hd.rx * 1.02, hd.ry * 1.16 * 1.02, hd.rz * 1.02); facePatch.position.y = 0.1;
+  }
+
+  return { setFace, group: root, mesh, bones, skeleton, boneMap: Object.fromEntries(BONE_NAMES.map((n, i) => [n, bones[i]])) };
 }
