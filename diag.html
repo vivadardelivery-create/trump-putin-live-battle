@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnostic relay</title>
+<style>
+body{margin:0;background:#07130c;color:#fff;font-family:system-ui,sans-serif;padding:14px;max-width:560px}
+h1{font-size:20px;margin:4px 0 10px;color:#ffe08a}
+label{display:block;font-size:12px;color:#a9d3b7;margin-top:10px}
+input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #2c5a3c;background:#0f2216;color:#fff;font-size:14px}
+button{margin-top:12px;width:100%;padding:14px;border:0;border-radius:10px;background:#ffd34d;color:#2b1a05;font-weight:900;font-size:15px}
+.row{display:flex;gap:8px;align-items:flex-start;padding:10px;margin-top:8px;border-radius:10px;background:#0f2216;border:1px solid #2c5a3c;font-size:14px;line-height:1.4}
+.ok{border-color:#3ddc84}.bad{border-color:#ff5d5d}.wait{border-color:#ffd34d}
+.big{font-size:20px}pre{white-space:pre-wrap;font-size:12px;color:#cdeedb;background:#0b1a11;padding:8px;border-radius:8px}
+</style></head><body>
+<h1>🔧 Diagnostic relay</h1>
+<label>Adresa relay (wss://…)</label><input id="url" value="wss://cursa-relay.onrender.com">
+<label>Parola (key). Lasă gol dacă ai șters RELAY_KEY din Render</label><input id="key" placeholder="(gol)">
+<button id="go">▶ PORNEȘTE TESTUL (poate dura până la 70 s)</button>
+<div id="out"></div>
+<script>
+const $=id=>document.getElementById(id), out=$('out');
+const q=new URLSearchParams(location.search); if(q.get('relay'))$('url').value=q.get('relay'); if(q.get('key'))$('key').value=q.get('key');
+function row(id,cls,icon,txt){let e=$(id);if(!e){e=document.createElement('div');e.id=id;out.append(e)}e.className='row '+cls;e.innerHTML='<span class="big">'+icon+'</span><div></div>';e.lastChild.textContent=txt}
+async function run(){
+  out.innerHTML='';
+  // 1) is this the NEW game version? (same-origin fetch of the game script)
+  row('r1','wait','⏳','1) Verific dacă pagina jocului e actualizată…');
+  try{const t=await (await fetch('js/race.js?x='+Date.now(),{cache:'no-store'})).text();
+    if(/scheduleRetry/.test(t))row('r1','ok','✅','1) Jocul publicat este versiunea NOUĂ (are reconectare și etichetă). Dacă totuși nu vezi eticheta în joc, e memoria browserului: deschide jocul în filă incognito.');
+    else row('r1','bad','❌','1) Jocul publicat este versiunea VECHE. GitHub Pages nu a terminat publicarea sau nu e pe ramura corectă. Așteaptă 2 minute și reîncarcă.');
+  }catch(e){row('r1','bad','❌','1) Nu pot citi js/race.js de pe acest site: '+e.message)}
+  // 2) websocket to relay
+  let url=$('url').value.trim(), key=$('key').value.trim();
+  if(!/^wss?:\/\//i.test(url)){row('r2','bad','❌','2) Adresa trebuie să înceapă cu wss://');return}
+  if(key)url+=(url.includes('?')?'&':'/?')+'key='+encodeURIComponent(key);
+  row('r2','wait','⏳','2) Mă conectez la relay… (dacă e adormit, durează ~50 s)');
+  const t0=Date.now(); let opened=false, n=0, kinds={}, last=[], status='';
+  const tick=setInterval(()=>{if(!opened)row('r2','wait','⏳','2) Mă conectez la relay… '+Math.round((Date.now()-t0)/1000)+' s')},1000);
+  let ws; try{ws=new WebSocket(url)}catch(e){clearInterval(tick);row('r2','bad','❌','2) Adresă invalidă: '+e.message);return}
+  const giveUp=setTimeout(()=>{if(!opened){ws.close();clearInterval(tick);row('r2','bad','❌','2) Nu s-a conectat în 70 s. Relay-ul e oprit/eșuat în Render sau adresa e greșită. Verifică în Render că serviciul e „Live” și deschide /health.')}},70000);
+  ws.onopen=()=>{opened=true;clearInterval(tick);clearTimeout(giveUp);row('r2','ok','✅','2) Conexiune la relay DESCHISĂ după '+Math.round((Date.now()-t0)/1000)+' s. Parola e corectă.');row('r3','wait','⏳','3) Aștept evenimente (15 s)…')};
+  ws.onmessage=m=>{try{const d=JSON.parse(m.data);n++;kinds[d.type]=(kinds[d.type]||0)+1;if(d.type==='status')status=JSON.stringify(d);last.unshift(m.data.slice(0,110));last=last.slice(0,4);
+    row('r3','ok','✅','3) Primesc evenimente: '+n+' ('+Object.entries(kinds).map(([k,v])=>k+':'+v).join(', ')+')\nStatus relay: '+status+'\nUltimele:\n'+last.join('\n'))}catch(e){}};
+  ws.onclose=e=>{clearInterval(tick);clearTimeout(giveUp);
+    if(e.code===4401)row('r2','bad','❌','2) Relay-ul a RESPINS parola (cod 4401). Parola din link nu coincide cu RELAY_KEY din Render. Șterge RELAY_KEY din Render sau pune parola exactă.');
+    else if(!opened)row('r2','bad','❌','2) Conexiune închisă fără să se deschidă (cod '+e.code+'). Relay-ul nu răspunde: oprit, în repornire sau adresă greșită.');
+    else row('r4','bad','⚠️','4) Conexiunea s-a închis după ce a mers (cod '+e.code+').')};
+  setTimeout(()=>{if(opened&&n===0)row('r3','bad','❌','3) Conectat, dar NU vin evenimente. În Render, mod MOCK trebuie să fie 1 (pentru test) sau TIKTOK_USERNAME corect.')},15000);
+}
+$('go').onclick=run;
+</script></body></html>
