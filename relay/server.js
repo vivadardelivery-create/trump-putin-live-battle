@@ -10,7 +10,7 @@ const EULER_KEY = process.env.EULER_API_KEY || undefined; // sign-server key use
 const RELAY_KEY = process.env.RELAY_KEY || '';            // optional shared secret in the ws:// URL (?key=...)
 const MOCK = process.env.MOCK === '1';
 
-let status = { tiktok: 'idle', roomId: '' };
+let status = { tiktok: 'idle', roomId: '', detail: '' };
 const clients = new Set();
 const seen = new Set();
 
@@ -19,7 +19,7 @@ export function tierOf(d) { return d >= 1000 ? 'lion' : d >= 100 ? 'rocket' : d 
 
 function send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
 function broadcast(obj) { for (const c of clients) send(c, obj); }
-function setStatus(tiktok, roomId = '') { status = { tiktok, roomId }; broadcast({ type: 'status', ...status }); console.log('[status]', tiktok, roomId); }
+function setStatus(tiktok, roomId = '', detail = '') { status = { tiktok, roomId, detail: String(detail).slice(0, 120) }; broadcast({ type: 'status', ...status }); console.log('[status]', tiktok, roomId, detail); }
 function once(id) { if (!id) return true; if (seen.has(id)) return false; seen.add(id); if (seen.size > 5000) seen.clear(); return true; }
 
 // ---- event handlers (shared by real connector and mock) ----
@@ -37,19 +37,26 @@ function onGift(d) {
 function onChat(d) { const user = d.user?.uniqueId || d.user?.nickname; if (user && d.comment) broadcast({ type: 'chat', id: d.msgId ? 'c:' + d.msgId : undefined, username: user, text: String(d.comment).slice(0, 80) }); }
 function onLike(d) { const user = d.user?.uniqueId; if (user) broadcast({ type: 'like', username: user, count: Math.min(Number(d.likeCount) || 1, 50) }); }
 
-// ---- real TikTok connection with reconnect/backoff ----
+// ---- real TikTok connection with gentle reconnect (the free sign service is rate-limited: do not hammer it) ----
 async function startTikTok() {
   if (!USERNAME) { console.error('Set TIKTOK_USERNAME (the @username that goes LIVE).'); setStatus('config-missing'); return; }
   const { TikTokLiveConnection, WebcastEvent, ControlEvent } = await import('tiktok-live-connector');
-  let delay = 5000;
+  let delay = 10000, conn = null;
+  const retry = (ms) => setTimeout(connect, ms);
   const connect = async () => {
     setStatus('connecting');
-    const conn = new TikTokLiveConnection(USERNAME, { signApiKey: EULER_KEY, enableExtendedGiftInfo: true });
+    conn = new TikTokLiveConnection(USERNAME, { signApiKey: EULER_KEY, enableExtendedGiftInfo: true });
     conn.on(WebcastEvent.GIFT, onGift); conn.on(WebcastEvent.CHAT, onChat); conn.on(WebcastEvent.LIKE, onLike);
-    conn.on(ControlEvent.DISCONNECTED, () => { setStatus('disconnected'); setTimeout(connect, delay); delay = Math.min(delay * 2, 60000); });
+    conn.on(ControlEvent.DISCONNECTED, () => { setStatus('disconnected'); retry(delay); delay = Math.min(delay * 2, 120000); });
     conn.on(ControlEvent.ERROR, (e) => console.error('[tiktok error]', e?.message || e));
-    try { const st = await conn.connect(); delay = 5000; setStatus('connected', String(st.roomId)); }
-    catch (e) { const off = /offline|not.*live|UserOffline/i.test(String(e?.name) + String(e?.message)); console.error('[connect failed]', e?.message || e); setStatus(off ? 'offline' : 'error'); setTimeout(connect, off ? 20000 : delay); delay = Math.min(delay * 2, 60000); }
+    try { const st = await conn.connect(); delay = 10000; setStatus('connected', String(st.roomId)); }
+    catch (e) {
+      const msg = String(e?.name || '') + ' ' + String(e?.message || e);
+      console.error('[connect failed]', msg);
+      if (/offline|not.*live|UserOffline/i.test(msg)) { setStatus('offline', '', 'contul nu e live'); retry(45000); }            // gentle: every 45 s
+      else if (/rate|limit|429|quota/i.test(msg)) { setStatus('rate-limited', '', 'limită serviciu semnare (EULER_API_KEY?)'); retry(120000); }
+      else { setStatus('error', '', msg.slice(0, 100)); retry(delay); delay = Math.min(delay * 2, 120000); }
+    }
   };
   connect();
 }
